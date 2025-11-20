@@ -12,7 +12,7 @@ export interface AuthRequest extends Request {
   };
 }
 
-export default function authMiddleware(
+export default async function authMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -26,6 +26,15 @@ export default function authMiddleware(
 
     const token = authHeader.split(" ")[1];
 
+    const { data: blacklisted } = await supabase
+      .from("blacklisted_tokens")
+      .select("*")
+      .eq("token", token)
+      .single();
+
+    if (blacklisted) {
+      return res.status(401).json({ success: false, message: "Token is invalid" });
+    }
 
     const secret = process.env.JWT_SECRET;
     if (!secret) {
