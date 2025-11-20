@@ -10,6 +10,13 @@ import { TransactionController } from "./controllers/TransactionController";
 const app = express();
 app.use(bodyParser.json());
 
+const cors = require("cors");
+
+app.use(cors({
+  origin: ["https://intelliflow-frontend.vercel.app"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true    // REQUIRED
+}));
 
 // Protected routes
 app.post("/api/auth/login", AuthController.login);
