@@ -10,10 +10,10 @@ import { TransactionController } from "./controllers/TransactionController";
 const app = express();
 app.use(bodyParser.json());
 
-// Public route
+
+// Protected routes
 app.post("/api/auth/login", AuthController.login);
 
-// Protected route example
 app.post("/api/auth/logout", authMiddleware, AuthController.logout);
 
 app.get("/api/transactions", authMiddleware, TransactionController.getMyTransactions);
