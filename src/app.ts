@@ -9,15 +9,15 @@ import  authMiddleware   from "./middlewares/authMiddleware";
 import { TransactionController } from "./controllers/TransactionController";
 
 const app = express();
-app.use(bodyParser.json());
-
-
-
 app.use(cors({
-  origin: ["https://intelliflow-frontend.vercel.app"],
+  origin: ["https://intelli-flow-frontend.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true    // REQUIRED
 }));
+
+app.options("*", cors());
+app.use(express.json());
+
 
 // Protected routes
 app.post("/api/auth/login", AuthController.login);
