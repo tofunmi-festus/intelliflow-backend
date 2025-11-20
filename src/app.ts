@@ -1,3 +1,4 @@
+import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -10,7 +11,7 @@ import { TransactionController } from "./controllers/TransactionController";
 const app = express();
 app.use(bodyParser.json());
 
-const cors = require("cors");
+
 
 app.use(cors({
   origin: ["https://intelliflow-frontend.vercel.app"],
