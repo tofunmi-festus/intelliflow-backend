@@ -8,7 +8,8 @@ const axios_1 = __importDefault(require("axios"));
 class ClassifierClient {
     static async predictCategory(tx) {
         try {
-            const response = await axios_1.default.post("http://localhost:8000/predict", tx);
+            const mlServiceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
+            const response = await axios_1.default.post(`${mlServiceUrl}/predict`, tx);
             return response.data.predicted_category;
         }
         catch (error) {

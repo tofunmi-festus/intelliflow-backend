@@ -12,10 +12,11 @@ const authMiddleware_1 = __importDefault(require("./middlewares/authMiddleware")
 const TransactionController_1 = require("./controllers/TransactionController");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
-    origin: ["*"],
+    origin: ["https://intelli-flow-frontend-r7wo.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true // REQUIRED
+    credentials: true,
+    optionsSuccessStatus: 200 // REQUIRED
 }));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -29,5 +30,13 @@ app.get("/api/me", authMiddleware_1.default, (req, res) => {
     // Cast req as any to safely access user without TS error
     const user = req.user;
     return res.json({ user });
+});
+// Health check endpoint
+app.get("/", (req, res) => {
+    res.json({ status: "Backend is running", timestamp: new Date().toISOString() });
+});
+// Health check endpoint for Vercel
+app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", service: "backend" });
 });
 exports.default = app;
