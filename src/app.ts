@@ -16,7 +16,7 @@ app.use(cors({
   credentials: true    // REQUIRED
 }));
 
-app.options("*", cors());
+
 app.use(express.json());
 
 
