@@ -13,23 +13,9 @@ app.use(cors({
   origin: ["https://intelli-flow-frontend-r7wo.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false,
+  credentials: true,
   optionsSuccessStatus: 200    // REQUIRED
 }));
-
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://intelli-flow-frontend-r7wo.vercel.app");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-});
-
-app.options("*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", "https://intelli-flow-frontend-r7wo.vercel.app");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.sendStatus(200);
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
