@@ -12,10 +12,11 @@ app.use(cors({
   origin: ["https://intelli-flow-frontend-r7wo.vercel.app/login"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true    // REQUIRED
+  credentials: true,
+  optionsSuccessStatus: 200    // REQUIRED
 }));
 
-
+app.options("*", cors())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
