@@ -8,7 +8,8 @@ export class ClassifierClient {
     credit: number;
   }): Promise<string> {
     try {
-      const response = await axios.post("http://localhost:8000/predict", tx);
+      const mlServiceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
+      const response = await axios.post(`${mlServiceUrl}/predict`, tx);
       return response.data.predicted_category;
     } catch (error) {
       console.error("Error calling classifier API", error);
