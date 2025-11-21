@@ -5,14 +5,12 @@ import { supabase } from "../config/supabase";
 export class AuthController {
   static async login(req: Request, res: Response) {
     const { accessCode, username, password } = req.body;
-    res.header("Access-Control-Allow-Origin", "https://intelli-flow-frontend-r7wo.vercel.app");
     try {
       const result = await AuthService.login(accessCode, username, password);
       return res.json(result);
     } catch (error: any) {
       return res.status(401).json({ message: error.message });
     }
-    
   }
 
   // static async logout(req: Request, res: Response) {
