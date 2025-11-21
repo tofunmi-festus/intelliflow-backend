@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import bodyParser from "body-parser";
 import { AuthController } from "./controllers/AuthController";
 import  authMiddleware   from "./middlewares/authMiddleware";
 import { TransactionController } from "./controllers/TransactionController";
@@ -18,6 +17,7 @@ app.use(cors({
 
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 
 // Protected routes
