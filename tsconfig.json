@@ -55,7 +55,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "src/types/**/*"],
+  "include": ["src/**/*", "src/types/**/*", "api"],
   "exclude": ["node_modules", "dist"]
 }
 
