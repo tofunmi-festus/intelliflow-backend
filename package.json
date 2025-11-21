@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node-dev --respawn src/index.ts",
+    "start": "node dist/src/index.js",
+    "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "test": "jest"
   },
@@ -30,5 +31,9 @@
     "@types/node": "^24.10.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
   }
 }
