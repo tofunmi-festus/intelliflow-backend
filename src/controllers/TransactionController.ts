@@ -55,23 +55,23 @@ export class TransactionController {
             const predicted = await TransactionService.classifyTransactionRecord(tx);
 
             // Update the transaction record with predicted category
-            const { error: updateError } = await supabase
-              .from("transactions")
-              .update({
-                categories: predicted,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", tx.id);
+            // const { error: updateError } = await supabase
+            //   .from("transactions")
+            //   .update({
+            //     categories: predicted,
+            //     updated_at: new Date().toISOString(),
+            //   })
+            //   .eq("id", tx.id);
 
-            if (updateError) {
-              console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
-              // Still return the transaction with prediction, even if update failed
-              return {
-                ...tx,
-                predicted_category: predicted,
-                update_failed: true,
-              };
-            }
+            // if (updateError) {
+            //   console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
+            //   // Still return the transaction with prediction, even if update failed
+            //   return {
+            //     ...tx,
+            //     predicted_category: predicted,
+            //     update_failed: true,
+            //   };
+            // }
 
             return {
               ...tx,
