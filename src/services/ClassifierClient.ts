@@ -9,11 +9,32 @@ export class ClassifierClient {
   }): Promise<string> {
     try {
       const mlServiceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
-      const response = await axios.post(`${mlServiceUrl}/predict`, tx);
+      
+      console.log(`Calling ML service at ${mlServiceUrl}/predict with:`, tx);
+      
+      const response = await axios.post(`${mlServiceUrl}/predict`, tx, {
+        timeout: 10000, // 10 second timeout
+      });
+
+      if (!response.data || !response.data.predicted_category) {
+        console.warn("ML service returned unexpected response:", response.data);
+        return "UNCATEGORIZED";
+      }
+
+      console.log(`Prediction successful:`, response.data.predicted_category);
       return response.data.predicted_category;
-    } catch (error) {
-      console.error("Error calling classifier API", error);
-      throw new Error("Failed to classify transaction");
+    } catch (error: any) {
+      console.error("Error calling classifier API:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config?.url,
+      });
+
+      // Return default category instead of throwing
+      // This prevents the entire transaction fetch from failing
+      return "UNCATEGORIZED";
     }
   }
 }
+
