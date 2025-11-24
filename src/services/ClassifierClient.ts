@@ -9,32 +9,38 @@ export class ClassifierClient {
   }): Promise<string> {
     try {
       const mlServiceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
-      // const mlServiceUrl = "https://web-production-e8681.up.railway.app";
+      const predictUrl = `${mlServiceUrl}/predict`;
       
-      console.log(`Calling ML service at ${mlServiceUrl}/predict with:`, tx);
+      console.log(`📤 Calling ML service at ${predictUrl}`);
       
-      const response = await axios.post(`${mlServiceUrl}/predict`, tx, {
-        timeout: 10000, // 10 second timeout
+      const response = await axios.post(predictUrl, tx, {
+        timeout: 15000, // 15 second timeout
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.data || !response.data.predicted_category) {
-        console.warn("ML service returned unexpected response:", response.data);
+        console.warn("⚠️ ML service returned unexpected response:", response.data);
         return "UNCATEGORIZED";
       }
 
-      console.log(`Prediction successful:`, response.data.predicted_category);
+      console.log(`✅ Prediction for ${tx.reference}:`, response.data.predicted_category);
       return response.data.predicted_category;
     } catch (error: any) {
-      console.error("Error calling classifier API:", {
+      const errorInfo = {
         message: error.message,
+        code: error.code,
         status: error.response?.status,
+        statusText: error.response?.statusText,
         data: error.response?.data,
-        config: error.config?.url,
-      });
+        url: error.config?.url,
+        method: error.config?.method,
+      };
+      console.error("❌ ML Service Error:", JSON.stringify(errorInfo, null, 2));
 
-      // Return default category instead of throwing
-      // This prevents the entire transaction fetch from failing
-      return "UNCATEGORIZED";
+      // Throw error instead of swallowing it so caller can handle it
+      throw new Error(`ML Service failed: ${error.message} (${error.response?.status || error.code})`);
     }
   }
 }

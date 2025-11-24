@@ -12,11 +12,23 @@ const authMiddleware_1 = __importDefault(require("./middlewares/authMiddleware")
 const TransactionController_1 = require("./controllers/TransactionController");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
-    origin: ["https://intelli-flow-frontend-r7wo.vercel.app"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            "https://intelli-flow-frontend-r7wo.vercel.app",
+            "http://localhost:3000",
+            "http://localhost:3001"
+        ];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error("CORS not allowed"));
+        }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-    optionsSuccessStatus: 200 // REQUIRED
+    optionsSuccessStatus: 200
 }));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));

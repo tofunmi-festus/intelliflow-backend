@@ -6,7 +6,6 @@ const supabase_1 = require("../config/supabase");
 class AuthController {
     static async login(req, res) {
         const { accessCode, username, password } = req.body;
-        res.header("Access-Control-Allow-Origin", "https://intelli-flow-frontend-r7wo.vercel.app");
         try {
             const result = await AuthService_1.AuthService.login(accessCode, username, password);
             return res.json(result);

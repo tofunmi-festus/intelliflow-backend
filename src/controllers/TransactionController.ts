@@ -48,7 +48,7 @@ export class TransactionController {
       }
 
       // ===== CLASSIFY EACH TRANSACTION =====
-      const classified = await Promise.all(
+      const classified = await Promise.allSettled(
         data.map(async (tx) => {
           try {
             // Get prediction from ML service
@@ -89,10 +89,20 @@ export class TransactionController {
         })
       );
 
+      // Handle settled promises - extract fulfilled transactions
+      const processedTransactions = classified.map((result) => {
+        if (result.status === "fulfilled") {
+          return result.value;
+        } else {
+          console.error("Transaction processing failed:", result.reason);
+          return null;
+        }
+      }).filter(Boolean);
+
       return res.json({
         success: true,
-        count: classified.length,
-        transactions: classified,
+        count: processedTransactions.length,
+        transactions: processedTransactions,
       });
     } catch (err: any) {
       console.error("Transaction fetch error:", err);

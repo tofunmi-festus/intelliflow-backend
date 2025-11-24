@@ -8,9 +8,7 @@ class TransactionController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res
-                    .status(401)
-                    .json({ success: false, message: "Unauthorized" });
+                return res.status(401).json({ success: false, message: "Unauthorized" });
             }
             let query = supabase_1.supabase
                 .from("transactions")
@@ -34,13 +32,49 @@ class TransactionController {
             if (error) {
                 return res.status(500).json({ success: false, error: error.message });
             }
+            if (!data || data.length === 0) {
+                return res.json({
+                    success: true,
+                    count: 0,
+                    transactions: [],
+                });
+            }
             // ===== CLASSIFY EACH TRANSACTION =====
             const classified = await Promise.all(data.map(async (tx) => {
-                const predicted = await TransactionService_1.TransactionService.classifyTransactionRecord(tx);
-                return {
-                    ...tx,
-                    predicted_category: predicted,
-                };
+                try {
+                    // Get prediction from ML service
+                    const predicted = await TransactionService_1.TransactionService.classifyTransactionRecord(tx);
+                    // Update the transaction record with predicted category
+                    // const { error: updateError } = await supabase
+                    //   .from("transactions")
+                    //   .update({
+                    //     categories: predicted,
+                    //     updated_at: new Date().toISOString(),
+                    //   })
+                    //   .eq("id", tx.id);
+                    // if (updateError) {
+                    //   console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
+                    //   // Still return the transaction with prediction, even if update failed
+                    //   return {
+                    //     ...tx,
+                    //     predicted_category: predicted,
+                    //     update_failed: true,
+                    //   };
+                    // }
+                    return {
+                        ...tx,
+                        predicted_category: predicted,
+                    };
+                }
+                catch (classifyError) {
+                    console.error(`Failed to classify transaction ${tx.id}:`, classifyError);
+                    // Return transaction without prediction if classification fails
+                    return {
+                        ...tx,
+                        predicted_category: null,
+                        classification_failed: true,
+                    };
+                }
             }));
             return res.json({
                 success: true,
@@ -49,7 +83,11 @@ class TransactionController {
             });
         }
         catch (err) {
-            return res.status(500).json({ success: false, message: "Server error" });
+            console.error("Transaction fetch error:", err);
+            return res.status(500).json({
+                success: false,
+                message: err.message || "Server error"
+            });
         }
     }
     static async getDashboardSummary(req, res) {
