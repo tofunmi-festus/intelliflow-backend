@@ -8,6 +8,7 @@ export class ClassifierClient {
     credit: number;
   }): Promise<string> {
     try {
+      // const mlServiceUrl = process.env.ML_SERVICE_URL || "http://localhost:8000";
       const mlServiceUrl = "web-production-e8681.up.railway.app";
       
       console.log(`Calling ML service at ${mlServiceUrl}/predict with:`, tx);
