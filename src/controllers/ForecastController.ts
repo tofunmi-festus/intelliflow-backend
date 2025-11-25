@@ -1,56 +1,118 @@
-import { Request, Response } from "express";
+import { Response } from "express";
+import { AuthRequest } from "../middlewares/authMiddleware";
 import { getCashflowForecast, Transaction } from "../services/ForecastClient";
 import { supabase } from "../config/supabase";
 
-export async function forecastController(req: Request, res: Response) {
-  try {
-    const userId = req.user?.id; // Assuming you have auth middleware attaching user
+export class ForecastController {
+  /**
+   * Forecast endpoint: /api/forecast?days=30
+   * 
+   * Flow:
+   * 1. User must be authenticated (authMiddleware adds req.user)
+   * 2. Fetch user's transactions from Supabase
+   * 3. Send transactions to Python ML service (/forecast endpoint)
+   * 4. Return predicted cashflow for next N days
+   * 
+   * Query Parameters:
+   * - days: Number of days to forecast (default: 30)
+   * - minTransactions: Minimum transactions required (default: 2)
+   */
+  static async getForecast(req: AuthRequest, res: Response) {
+    try {
+      // ===== STEP 1: Verify user is authenticated =====
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized - No user found in token",
+        });
+      }
 
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
+      console.log(`[ForecastController] User ${userId} requesting forecast`);
 
-    // Fetch user transactions from your database
-    const { data: transactions, error } = await supabase
-      .from("transactions")
-      .select("transaction_date, debit, credit")
-      .eq("user_id", userId)
-      .order("transaction_date", { ascending: true });
+      // ===== STEP 2: Get forecast parameters from query =====
+      const days = Math.min(Number(req.query.days) || 30, 365); // Cap at 1 year
+      const minTransactions = Number(req.query.minTransactions) || 2;
 
-    if (error) {
-      console.error("Error fetching transactions:", error.message);
-      return res.status(500).json({ success: false, message: error.message });
-    }
+      console.log(`[ForecastController] Parameters - days: ${days}, minTransactions: ${minTransactions}`);
 
-    if (!transactions || transactions.length < 2) {
-      return res.status(400).json({
+      // ===== STEP 3: Fetch user transactions from Supabase =====
+      console.log(`[ForecastController] Fetching transactions for user ${userId}`);
+      
+      const { data: transactions, error: fetchError } = await supabase
+        .from("transactions")
+        .select("transaction_date, debit, credit")
+        .eq("user_id", userId)
+        .order("transaction_date", { ascending: true });
+
+      if (fetchError) {
+        console.error(`[ForecastController] Database error:`, fetchError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch transactions from database",
+          error: fetchError.message,
+        });
+      }
+
+      if (!transactions || transactions.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No transactions found for this user",
+          transactionCount: 0,
+        });
+      }
+
+      console.log(`[ForecastController] Found ${transactions.length} transactions`);
+
+      // ===== STEP 4: Validate minimum transaction count =====
+      if (transactions.length < minTransactions) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient data for forecasting. Need at least ${minTransactions} transactions, but only found ${transactions.length}`,
+          transactionCount: transactions.length,
+          required: minTransactions,
+        });
+      }
+
+      // ===== STEP 5: Transform transactions to ML service format =====
+      const txs: Transaction[] = transactions.map((t: any) => ({
+        transaction_date: t.transaction_date,
+        debit: t.debit ?? 0,
+        credit: t.credit ?? 0,
+      }));
+
+      // ===== STEP 6: Call ML forecast service =====
+      console.log(`[ForecastController] Calling ML service for forecast...`);
+      
+      const forecast = await getCashflowForecast(txs, days);
+
+      console.log(`[ForecastController] Forecast successful - ${forecast.forecast.length} days predicted`);
+
+      // ===== STEP 7: Return forecast to client =====
+      return res.json({
+        success: true,
+        data: {
+          forecast: forecast.forecast,
+          transactionCount: txs.length,
+          forecastDays: days,
+          generatedAt: new Date().toISOString(),
+        },
+      });
+    } catch (err: any) {
+      console.error(`[ForecastController] Error:`, err.message);
+      console.error(`[ForecastController] Stack:`, err.stack);
+
+      // Determine appropriate status code
+      let statusCode = 500;
+      if (err.message.includes("timeout") || err.message.includes("ECONNREFUSED")) {
+        statusCode = 503; // Service Unavailable - ML service is down
+      }
+
+      return res.status(statusCode).json({
         success: false,
-        message: "Not enough transactions for forecasting.",
+        message: err.message || "Failed to generate forecast",
+        error: process.env.NODE_ENV === "development" ? err.stack : undefined,
       });
     }
-
-    // Cast transactions to required type for forecastClient
-    const txs: Transaction[] = transactions.map((t: any) => ({
-      transaction_date: t.transaction_date,
-      debit: t.debit ?? 0,
-      credit: t.credit ?? 0,
-    }));
-
-    // Get forecast days from query params (default 30)
-    const days = Number(req.query.days) || 30;
-
-    // Call forecasting service
-    const forecast = await getCashflowForecast(txs, days);
-
-    return res.json({
-      success: true,
-      forecast,
-    });
-  } catch (err: any) {
-    console.error("Forecast Controller error:", err);
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Server error",
-    });
   }
 }
