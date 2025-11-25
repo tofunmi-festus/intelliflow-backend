@@ -43,7 +43,7 @@ app.get("/api/transactions", authMiddleware, TransactionController.getMyTransact
 
 app.get("/api/dashboard/summary", authMiddleware, TransactionController.getDashboardSummary);
 
-app.get("/api/forecast", forecastController)
+app.get("/api/forecast", authMiddleware, forecastController)
 
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
