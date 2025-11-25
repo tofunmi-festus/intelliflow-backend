@@ -8,7 +8,9 @@ class TransactionController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({ success: false, message: "Unauthorized" });
+                return res
+                    .status(401)
+                    .json({ success: false, message: "Unauthorized" });
             }
             let query = supabase_1.supabase
                 .from("transactions")
@@ -40,27 +42,63 @@ class TransactionController {
                 });
             }
             // ===== CLASSIFY EACH TRANSACTION =====
-            const classified = await Promise.all(data.map(async (tx) => {
+            // const classified = await Promise.allSettled(
+            //   data.map(async (tx) => {
+            //     try {
+            //       // Get prediction from ML service
+            //       const predicted = await TransactionService.classifyTransactionRecord(tx);
+            //       // Update the transaction record with predicted category
+            //       // const { error: updateError } = await supabase
+            //       //   .from("transactions")
+            //       //   .update({
+            //       //     categories: predicted,
+            //       //     updated_at: new Date().toISOString(),
+            //       //   })
+            //       //   .eq("id", tx.id);
+            //       // if (updateError) {
+            //       //   console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
+            //       //   // Still return the transaction with prediction, even if update failed
+            //       //   return {
+            //       //     ...tx,
+            //       //     predicted_category: predicted,
+            //       //     update_failed: true,
+            //       //   };
+            //       // }
+            //       return {
+            //         ...tx,
+            //         predicted_category: predicted,
+            //       };
+            //     } catch (classifyError) {
+            //       console.error(`Failed to classify transaction ${tx.id}:`, classifyError);
+            //       // Return transaction without prediction if classification fails
+            //       return {
+            //         ...tx,
+            //         predicted_category: null,
+            //         classification_failed: true,
+            //       };
+            //     }
+            //   })
+            // );
+            const classified = await Promise.allSettled(data.map(async (tx) => {
                 try {
                     // Get prediction from ML service
                     const predicted = await TransactionService_1.TransactionService.classifyTransactionRecord(tx);
-                    // Update the transaction record with predicted category
-                    // const { error: updateError } = await supabase
-                    //   .from("transactions")
-                    //   .update({
-                    //     categories: predicted,
-                    //     updated_at: new Date().toISOString(),
-                    //   })
-                    //   .eq("id", tx.id);
-                    // if (updateError) {
-                    //   console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
-                    //   // Still return the transaction with prediction, even if update failed
-                    //   return {
-                    //     ...tx,
-                    //     predicted_category: predicted,
-                    //     update_failed: true,
-                    //   };
-                    // }
+                    // ✅ UNCOMMENT AND FIX THIS - Update the database!
+                    const { error: updateError } = await supabase_1.supabase
+                        .from("transactions")
+                        .update({
+                        predicted_category: predicted, // ⚠️ Changed from 'categories' to 'predicted_category'
+                        updated_at: new Date().toISOString(),
+                    })
+                        .eq("id", tx.id);
+                    if (updateError) {
+                        console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
+                        return {
+                            ...tx,
+                            predicted_category: predicted,
+                            update_failed: true,
+                        };
+                    }
                     return {
                         ...tx,
                         predicted_category: predicted,
@@ -68,25 +106,36 @@ class TransactionController {
                 }
                 catch (classifyError) {
                     console.error(`Failed to classify transaction ${tx.id}:`, classifyError);
-                    // Return transaction without prediction if classification fails
                     return {
                         ...tx,
-                        predicted_category: null,
+                        predicted_category: "UNCATEGORIZED",
                         classification_failed: true,
                     };
                 }
             }));
+            // Handle settled promises - extract fulfilled transactions
+            const processedTransactions = classified
+                .map((result) => {
+                if (result.status === "fulfilled") {
+                    return result.value;
+                }
+                else {
+                    console.error("Transaction processing failed:", result.reason);
+                    return null;
+                }
+            })
+                .filter(Boolean);
             return res.json({
                 success: true,
-                count: classified.length,
-                transactions: classified,
+                count: processedTransactions.length,
+                transactions: processedTransactions,
             });
         }
         catch (err) {
             console.error("Transaction fetch error:", err);
             return res.status(500).json({
                 success: false,
-                message: err.message || "Server error"
+                message: err.message || "Server error",
             });
         }
     }
