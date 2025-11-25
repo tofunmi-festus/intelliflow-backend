@@ -1,5 +1,4 @@
-import { Response } from "express";
-import { AuthRequest } from "../middlewares/authMiddleware";
+import { Response, Request } from "express";
 import { getCashflowForecast, Transaction } from "../services/ForecastClient";
 import { supabase } from "../config/supabase";
 
@@ -17,10 +16,12 @@ export class ForecastController {
    * - days: Number of days to forecast (default: 30)
    * - minTransactions: Minimum transactions required (default: 2)
    */
-  static async getForecast(req: AuthRequest, res: Response) {
+  static async getForecast(req: Request, res: Response) {
     try {
       // ===== STEP 1: Verify user is authenticated =====
-      const userId = req.user?.id;
+      const user = (req as any).user;
+      const userId = user?.id;
+      
       if (!userId) {
         return res.status(401).json({
           success: false,
