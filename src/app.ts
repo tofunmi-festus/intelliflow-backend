@@ -6,6 +6,7 @@ import express from "express";
 import { AuthController } from "./controllers/AuthController";
 import  authMiddleware   from "./middlewares/authMiddleware";
 import { TransactionController } from "./controllers/TransactionController";
+import { forecastController } from "./controllers/ForecastController";
 
 const app = express();
 
@@ -41,6 +42,8 @@ app.post("/api/auth/logout", authMiddleware, AuthController.logout);
 app.get("/api/transactions", authMiddleware, TransactionController.getMyTransactions);
 
 app.get("/api/dashboard/summary", authMiddleware, TransactionController.getDashboardSummary);
+
+app.get("/api/forecast", forecastController)
 
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
