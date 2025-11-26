@@ -21,6 +21,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "node-cache": "^5.1.2",
+    "openai": "^6.9.1",
     "serverless-http": "^4.0.0"
   },
   "devDependencies": {

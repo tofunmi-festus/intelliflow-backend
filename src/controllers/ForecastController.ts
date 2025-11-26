@@ -1,17 +1,18 @@
 import { Response, Request } from "express";
 import { getCashflowForecast, Transaction } from "../services/ForecastClient";
 import { supabase } from "../config/supabase";
+import { InsightService } from "../services/InsightService";
 
 export class ForecastController {
   /**
    * Forecast endpoint: /api/forecast?days=30
-   * 
+   *
    * Flow:
    * 1. User must be authenticated (authMiddleware adds req.user)
    * 2. Fetch user's transactions from Supabase
    * 3. Send transactions to Python ML service (/forecast endpoint)
    * 4. Return predicted cashflow for next N days
-   * 
+   *
    * Query Parameters:
    * - days: Number of days to forecast (default: 30)
    * - minTransactions: Minimum transactions required (default: 2)
@@ -21,7 +22,7 @@ export class ForecastController {
       // ===== STEP 1: Verify user is authenticated =====
       const user = (req as any).user;
       const userId = user?.id;
-      
+
       if (!userId) {
         return res.status(401).json({
           success: false,
@@ -35,11 +36,15 @@ export class ForecastController {
       const days = Math.min(Number(req.query.days) || 30, 365); // Cap at 1 year
       const minTransactions = Number(req.query.minTransactions) || 2;
 
-      console.log(`[ForecastController] Parameters - days: ${days}, minTransactions: ${minTransactions}`);
+      console.log(
+        `[ForecastController] Parameters - days: ${days}, minTransactions: ${minTransactions}`
+      );
 
       // ===== STEP 3: Fetch user transactions from Supabase =====
-      console.log(`[ForecastController] Fetching transactions for user ${userId}`);
-      
+      console.log(
+        `[ForecastController] Fetching transactions for user ${userId}`
+      );
+
       const { data: transactions, error: fetchError } = await supabase
         .from("transactions")
         .select("transaction_date, debit, credit")
@@ -63,7 +68,9 @@ export class ForecastController {
         });
       }
 
-      console.log(`[ForecastController] Found ${transactions.length} transactions`);
+      console.log(
+        `[ForecastController] Found ${transactions.length} transactions`
+      );
 
       // ===== STEP 4: Validate minimum transaction count =====
       if (transactions.length < minTransactions) {
@@ -84,16 +91,44 @@ export class ForecastController {
 
       // ===== STEP 6: Call ML forecast service =====
       console.log(`[ForecastController] Calling ML service for forecast...`);
-      
+
       const forecast = await getCashflowForecast(txs, days);
 
-      console.log(`[ForecastController] Forecast successful - ${forecast.forecast.length} days predicted`);
+      console.log(
+        `[ForecastController] Forecast successful - ${forecast.forecast.length} days predicted`
+      );
+
+      // ===== STEP 6: Generate insights from forecast =====
+      console.log(`[ForecastController] Generating insights from forecast...`);
+      let insights;
+      try {
+        // Transform forecast into format InsightService expects
+        const insightInput = forecast.forecast.map((p) => ({
+          date: p.date,
+          value: p.predicted_cashflow,
+        }));
+        
+        insights = InsightService.generateInsights(insightInput);
+        console.log(`[ForecastController] Insights generated successfully`);
+      } catch (insightError: any) {
+        console.error(
+          `[ForecastController] Failed to generate insights:`,
+          insightError.message
+        );
+        // Return forecast without insights rather than failing completely
+        insights = {
+          summary: "Could not generate insights",
+          insights: [],
+          stats: {},
+        };
+      }
 
       // ===== STEP 7: Return forecast to client =====
       return res.json({
         success: true,
         data: {
           forecast: forecast.forecast,
+          insight: insights,
           transactionCount: txs.length,
           forecastDays: days,
           generatedAt: new Date().toISOString(),
@@ -105,7 +140,10 @@ export class ForecastController {
 
       // Determine appropriate status code
       let statusCode = 500;
-      if (err.message.includes("timeout") || err.message.includes("ECONNREFUSED")) {
+      if (
+        err.message.includes("timeout") ||
+        err.message.includes("ECONNREFUSED")
+      ) {
         statusCode = 503; // Service Unavailable - ML service is down
       }
 
