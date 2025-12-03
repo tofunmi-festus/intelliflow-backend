@@ -57,4 +57,25 @@ export class ManagerController {
       return res.status(500).json({ success: false, message: "Logout failed" });
     }
   }
+
+  static async getManagedUsers(req: Request, res: Response) {
+  try {
+    const manager = (req as any).manager;
+
+    if (!manager || !manager.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const users = await ManagerService.getUsersWithTransactionSummary(manager.id);
+
+    return res.json({
+      success: true,
+      users
+    });
+
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 }

@@ -36,7 +36,7 @@ export class ManagerService {
         try {
           jwt.verify(manager.current_access_token, secret);
           // Token is valid, user already logged in — return existing token instead of creating new
-          const message = "User already logged in, returning existing token";
+          const message = "Manager already logged in, returning existing token";
           console.log(message);
           const safeManager = {
             id: manager.id,
@@ -108,4 +108,53 @@ export class ManagerService {
 
     return { message: "Logged out successfully" };
   }
+
+  
+  static async getUsersWithTransactionSummary(managerId: string) {
+  if (!managerId) throw new Error("Manager ID missing");
+
+  // Query users under this manager
+  const { data: users, error: userError } = await supabase
+    .from("users")
+    .select("id, full_name, email")
+    .eq("manager_id", managerId);
+
+  if (userError) throw new Error("Failed to fetch users: " + userError.message);
+
+  if (!users || users.length === 0) {
+    return [];
+  }
+
+  // Fetch all user IDs
+  const userIds = users.map(u => u.id);
+
+  // Fetch transactions for all users IN ONE QUERY
+  const { data: txData, error: txError } = await supabase
+    .from("transactions")
+    .select("user_id, amount, created_at")
+    .in("user_id", userIds);
+
+  if (txError) throw new Error("Failed to fetch transactions: " + txError.message);
+
+  // Summaries per user
+  const summaries = users.map(user => {
+    const userTx = txData?.filter(t => t.user_id === user.id) || [];
+
+    const totalAmount = userTx.reduce((s, t) => s + Number(t.amount), 0);
+    const totalTransactions = userTx.length;
+    const lastTransaction = userTx.length
+      ? userTx.sort((a, b) => new Date(b.created_at).valueOf() - new Date(a.created_at).valueOf())[0].created_at
+      : null;
+
+    return {
+      ...user,
+      totalAmount,
+      totalTransactions,
+      lastTransaction
+    };
+  });
+
+  return summaries;
+}
+
 }
