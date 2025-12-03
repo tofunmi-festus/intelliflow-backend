@@ -10,7 +10,7 @@ export interface ManagerRequest extends Request {
   };
 }
 
-export default async function ManagerMiddleware(
+export default async function managerMiddleware(
   req: ManagerRequest,
   res: Response,
   next: NextFunction

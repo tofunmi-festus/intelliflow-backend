@@ -9,7 +9,7 @@ import { TransactionController } from "./controllers/TransactionController";
 import { ForecastController } from "./controllers/ForecastController";
 import { CreditScoreController } from "./controllers/CreditScoreController";
 import { ManagerController } from "./controllers/ManagerController";
-import ManagerMiddleware from "./middlewares/managerMiddleware";
+import managerMiddleware from "./middlewares/managerMiddleware";
 
 const app = express();
 
@@ -52,7 +52,7 @@ app.get("/api/creditscore", authMiddleware, CreditScoreController.getCreditScore
 
 app.post("/api/manager/login", ManagerController.login);
 
-app.post("/api/manager/logout", ManagerMiddleware, ManagerController.logout);
+app.post("/api/manager/logout", managerMiddleware, ManagerController.logout);
 
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
