@@ -125,36 +125,47 @@ export class ManagerService {
     return [];
   }
 
+  const totalUsers = users.length;
+
+  if (users.length === 0) {
+    return {
+      totalUsers,
+      users: []
+    };
+  }
+
   // Fetch all user IDs
   const userIds = users.map(u => u.id);
 
   // Fetch transactions for all users IN ONE QUERY
-  const { data: txData, error: txError } = await supabase
+  const { data: transactions, error: txError } = await supabase
     .from("transactions")
-    .select("user_id, amount, created_at")
+    .select("user_id, balance, credit, debit, created_at")
     .in("user_id", userIds);
 
   if (txError) throw new Error("Failed to fetch transactions: " + txError.message);
 
-  // Summaries per user
-  const summaries = users.map(user => {
-    const userTx = txData?.filter(t => t.user_id === user.id) || [];
+   // Build summary
+  const summary = users.map(user => {
+    const userTx = transactions.filter(t => t.user_id === user.id);
 
-    const totalAmount = userTx.reduce((s, t) => s + Number(t.amount), 0);
-    const totalTransactions = userTx.length;
-    const lastTransaction = userTx.length
-      ? userTx.sort((a, b) => new Date(b.created_at).valueOf() - new Date(a.created_at).valueOf())[0].created_at
-      : null;
+    const avgBalance = userTx.length
+      ? userTx.reduce((sum, t) => sum + Number(t.balance), 0) / userTx.length
+      : 0;
 
     return {
-      ...user,
-      totalAmount,
-      totalTransactions,
-      lastTransaction
+      id: user.id,
+      business_name: user.business_name,
+      email: user.email,
+      avgBalance,
+      transactionCount: userTx.length
     };
   });
 
-  return summaries;
+  return {
+    totalUsers,
+    users: summary
+  };
 }
 
 }
