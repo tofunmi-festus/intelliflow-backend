@@ -220,7 +220,8 @@ export class ManagerService {
     const { data: transactions, error: txError } = await supabase
       .from("transactions")
       .select("*")
-      .in("user_id", userIds);
+      .in("user_id", userIds)
+      .limit(10000);
 
     if (txError) throw new Error(txError.message);
 
