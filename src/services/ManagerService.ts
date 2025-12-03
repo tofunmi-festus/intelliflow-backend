@@ -192,53 +192,44 @@ export class ManagerService {
   static async getUsersWithTransactionSummary(managerId: number | string) {
     if (!managerId) throw new Error("Manager ID missing");
 
-    const { data: users, error: userError } = await supabase.rpc(
+    const { data, error } = await supabase.rpc(
       "get_users_transaction_summary",
       {
         manager: Number(managerId),
       }
     );
 
-    if (userError) {
+    if (error) {
       throw new Error(
-        "Failed to fetch user transaction summary: " + userError.message
+        "Failed to fetch user transaction summary: " + error.message
       );
     }
-
-    // return {
-    //   totalUsers: data?.length || 0,
-    //   users: data || []
-    // };
-
-    if (!users || users.length === 0) {
-      return { totalUsers: 0, users: [] };
-    }
-
-    const userIds = users.map((u: any) => u.id);
-
-    // 2. Get all transactions for those users
-    const { data: transactions, error: txError } = await supabase
-      .from("transactions")
-      .select("*")
-      .in("user_id", userIds)
-      .limit(10000);
-
-    if (txError) throw new Error(txError.message);
-
-    // 3. Map transactions to users
-    const usersWithTransactions = users.map((user: any) => {
-      const userTransactions = transactions.filter(
-        (tx) => tx.user_id === user.id
-      );
-      return {
-        ...user,
-        transactions: userTransactions,
-      };
-    });
 
     return {
-      totalUsers: users.length,
-      users: usersWithTransactions,
+      totalUsers: data?.length || 0,
+      users: data || []
+    };
+  }
+
+    static async getUsersWithFullTransaction(managerId: number | string) {
+    if (!managerId) throw new Error("Manager ID missing");
+
+    const { data, error } = await supabase.rpc(
+      "get_users_with_transactions",
+      {
+        manager: Number(managerId),
+      }
+    );
+
+    if (error) {
+      throw new Error(
+        "Failed to fetch user transaction summary: " + error.message
+      );
+    }
+
+    return {
+      totalUsers: data?.length || 0,
+      users: data || []
     };
   }
 }

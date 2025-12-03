@@ -97,4 +97,23 @@ static async getManagedUsers(req: Request, res: Response) {
   }
 }
 
+static async getManagedUsersWithTransactions(req: Request, res: Response) {
+  try {
+    const manager = (req as any).manager;
+
+    if (!manager || !manager.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const users = await ManagerService.getUsersWithFullTransaction(manager.id);
+
+    return res.json({
+      success: true,
+      users,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 }

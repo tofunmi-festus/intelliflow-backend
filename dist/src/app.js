@@ -46,6 +46,7 @@ app.get("/api/creditscore", authMiddleware_1.default, CreditScoreController_1.Cr
 app.post("/api/manager/login", ManagerController_1.ManagerController.login);
 app.post("/api/manager/logout", managerMiddleware_1.default, ManagerController_1.ManagerController.logout);
 app.get("/api/manager/users", managerMiddleware_1.default, ManagerController_1.ManagerController.getManagedUsers);
+app.get("/api/manager/full", managerMiddleware_1.default, ManagerController_1.ManagerController.getManagedUsersWithTransactions);
 // Test protected route
 app.get("/api/me", authMiddleware_1.default, (req, res) => {
     // Cast req as any to safely access user without TS error

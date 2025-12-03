@@ -56,6 +56,9 @@ app.post("/api/manager/logout", managerMiddleware, ManagerController.logout);
 
 app.get("/api/manager/users", managerMiddleware, ManagerController.getManagedUsers);
 
+app.get("/api/manager/full", managerMiddleware, ManagerController.getManagedUsersWithTransactions);
+
+
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
   // Cast req as any to safely access user without TS error
