@@ -41,7 +41,7 @@ export class ManagerService {
           const safeManager = {
             id: manager.id,
             email: manager.email,
-            manager_name: manager.manager_name
+            manager_name: manager.manager_name,
           };
           return {
             message,
@@ -109,63 +109,65 @@ export class ManagerService {
     return { message: "Logged out successfully" };
   }
 
-
   static async getUsersWithTransactionSummary(managerId: string) {
-  if (!managerId) throw new Error("Manager ID missing");
+    if (!managerId) throw new Error("Manager ID missing");
 
-  // Query users under this manager
-  const { data: users, error: userError } = await supabase
-    .from("app_users")
-    .select("id, business_name, email")
-    .eq("manager_id", managerId);
+    // Query users under this manager
+    const { data: users, error: userError } = await supabase
+      .from("app_users")
+      .select("id, business_name, email")
+      .eq("manager_id", managerId);
 
-  if (userError) throw new Error("Failed to fetch users: " + userError.message);
+    if (userError)
+      throw new Error("Failed to fetch users: " + userError.message);
 
-  if (!users || users.length === 0) {
-    return [];
-  }
+    if (!users || users.length === 0) {
+      return [];
+    }
 
-  const totalUsers = users.length;
+    const totalUsers = users.length;
 
-  if (users.length === 0) {
+    if (users.length === 0) {
+      return {
+        totalUsers,
+        users: [],
+      };
+    }
+
+    // Fetch all user IDs
+    const userIds = users.map((u) => u.id);
+
+    // Fetch transactions for all users IN ONE QUERY
+    const { data: transactions, error: txError } = await supabase
+      .from("transactions")
+      .select("user_id, balance, credit, debit, created_at")
+      .in("user_id", userIds);
+
+    if (txError)
+      throw new Error("Failed to fetch transactions: " + txError.message);
+
+    // Build summary
+    const summary = users.map((user) => {
+      const userTx = transactions.filter(
+        (t) => String(t.user_id) === String(user.id)
+      );
+
+      const avgBalance = userTx.length
+        ? userTx.reduce((sum, t) => sum + Number(t.balance), 0) / userTx.length
+        : 0;
+
+      return {
+        id: user.id,
+        business_name: user.business_name,
+        email: user.email,
+        avgBalance,
+        transactionCount: userTx.length,
+      };
+    });
+
     return {
       totalUsers,
-      users: []
+      users: summary,
     };
   }
-
-  // Fetch all user IDs
-  const userIds = users.map(u => u.id);
-
-  // Fetch transactions for all users IN ONE QUERY
-  const { data: transactions, error: txError } = await supabase
-    .from("transactions")
-    .select("user_id, balance, credit, debit, created_at")
-    .in("user_id", userIds);
-
-  if (txError) throw new Error("Failed to fetch transactions: " + txError.message);
-
-   // Build summary
-  const summary = users.map(user => {
-    const userTx = transactions.filter(t => t.user_id === user.id);
-
-    const avgBalance = userTx.length
-      ? userTx.reduce((sum, t) => sum + Number(t.balance), 0) / userTx.length
-      : 0;
-
-    return {
-      id: user.id,
-      business_name: user.business_name,
-      email: user.email,
-      avgBalance,
-      transactionCount: userTx.length
-    };
-  });
-
-  return {
-    totalUsers,
-    users: summary
-  };
-}
-
 }
