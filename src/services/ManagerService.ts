@@ -109,14 +109,14 @@ export class ManagerService {
     return { message: "Logged out successfully" };
   }
 
-  
+
   static async getUsersWithTransactionSummary(managerId: string) {
   if (!managerId) throw new Error("Manager ID missing");
 
   // Query users under this manager
   const { data: users, error: userError } = await supabase
-    .from("users")
-    .select("id, full_name, email")
+    .from("app_users")
+    .select("id, business_name, email")
     .eq("manager_id", managerId);
 
   if (userError) throw new Error("Failed to fetch users: " + userError.message);
