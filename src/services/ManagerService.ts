@@ -109,100 +109,135 @@ export class ManagerService {
     return { message: "Logged out successfully" };
   }
 
-//   static async getUsersWithTransactionSummary(managerId: string) {
-//     if (!managerId) throw new Error("Manager ID missing");
+  //   static async getUsersWithTransactionSummary(managerId: string) {
+  //     if (!managerId) throw new Error("Manager ID missing");
 
-//     // Query users under this manager
-//     const { data: users, error: userError } = await supabase
-//       .from("app_users")
-//       .select("id, business_name, email")
-//       .eq("manager_id", managerId);
+  //     // Query users under this manager
+  //     const { data: users, error: userError } = await supabase
+  //       .from("app_users")
+  //       .select("id, business_name, email")
+  //       .eq("manager_id", managerId);
 
-//     if (userError)
-//       throw new Error("Failed to fetch users: " + userError.message);
+  //     if (userError)
+  //       throw new Error("Failed to fetch users: " + userError.message);
 
-//     if (!users || users.length === 0) {
-//       return [];
-//     }
+  //     if (!users || users.length === 0) {
+  //       return [];
+  //     }
 
-//     const totalUsers = users.length;
+  //     const totalUsers = users.length;
 
-//     if (users.length === 0) {
-//       return {
-//         totalUsers,
-//         users: [],
-//       };
-//     }
+  //     if (users.length === 0) {
+  //       return {
+  //         totalUsers,
+  //         users: [],
+  //       };
+  //     }
 
-//     // Fetch all user IDs
-//     const userIds = users.map((u) => u.id);
+  //     // Fetch all user IDs
+  //     const userIds = users.map((u) => u.id);
 
-//     // Fetch transactions for all users IN ONE QUERY
-//     const { data: transactions, error: txError } = await supabase
-//       .from("transactions")
-//       .select("user_id, balance, credit, debit, created_at")
-//       .in("user_id", userIds);
+  //     // Fetch transactions for all users IN ONE QUERY
+  //     const { data: transactions, error: txError } = await supabase
+  //       .from("transactions")
+  //       .select("user_id, balance, credit, debit, created_at")
+  //       .in("user_id", userIds);
 
-//     if (txError)
-//       throw new Error("Failed to fetch transactions: " + txError.message);
+  //     if (txError)
+  //       throw new Error("Failed to fetch transactions: " + txError.message);
 
-//     console.log("Users:", users.length);
-//     console.log("Transactions:", transactions.length);
+  //     console.log("Users:", users.length);
+  //     console.log("Transactions:", transactions.length);
 
-//     users.forEach((user) => {
-//       console.log(`User ID: (${typeof user.id})`, user.id);
-//     });
+  //     users.forEach((user) => {
+  //       console.log(`User ID: (${typeof user.id})`, user.id);
+  //     });
 
-//     transactions.forEach((t) => {
-//       console.log(`Transaction user_id: (${typeof t.user_id})`, t.user_id);
-//     });
+  //     transactions.forEach((t) => {
+  //       console.log(`Transaction user_id: (${typeof t.user_id})`, t.user_id);
+  //     });
 
-//     // Build summary
-//     const summary = users.map((user) => {
-//       const userTx = transactions.filter((t) => {
-//         console.log(
-//           "Comparing:",
-//           typeof t.user_id,
-//           t.user_id,
-//           typeof user.id,
-//           user.id
-//         );
-//         return String(t.user_id) === String(user.id);
-//       });
+  //     // Build summary
+  //     const summary = users.map((user) => {
+  //       const userTx = transactions.filter((t) => {
+  //         console.log(
+  //           "Comparing:",
+  //           typeof t.user_id,
+  //           t.user_id,
+  //           typeof user.id,
+  //           user.id
+  //         );
+  //         return String(t.user_id) === String(user.id);
+  //       });
 
-//       const avgBalance = userTx.length
-//         ? userTx.reduce((sum, t) => sum + Number(t.balance), 0) / userTx.length
-//         : 0;
+  //       const avgBalance = userTx.length
+  //         ? userTx.reduce((sum, t) => sum + Number(t.balance), 0) / userTx.length
+  //         : 0;
 
-//       return {
-//         id: user.id,
-//         business_name: user.business_name,
-//         email: user.email,
-//         avgBalance,
-//         transactionCount: userTx.length,
-//       };
-//     });
+  //       return {
+  //         id: user.id,
+  //         business_name: user.business_name,
+  //         email: user.email,
+  //         avgBalance,
+  //         transactionCount: userTx.length,
+  //       };
+  //     });
 
-//     return {
-//       totalUsers,
-//       users: summary,
-//     };
-//   }
+  //     return {
+  //       totalUsers,
+  //       users: summary,
+  //     };
+  //   }
 
-static async getUsersWithTransactionSummary(managerId: number | string) {
+  static async getUsersWithTransactionSummary(managerId: number | string) {
     if (!managerId) throw new Error("Manager ID missing");
 
-    const { data, error } = await supabase.rpc('get_users_transaction_summary', {
-      manager: Number(managerId),
-    });
+    const { data: users, error: userError } = await supabase.rpc(
+      "get_users_transaction_summary",
+      {
+        manager: Number(managerId),
+      }
+    );
 
-    if (error) {
-      throw new Error("Failed to fetch user transaction summary: " + error.message);
+    if (userError) {
+      throw new Error(
+        "Failed to fetch user transaction summary: " + userError.message
+      );
     }
 
+    // return {
+    //   totalUsers: data?.length || 0,
+    //   users: data || []
+    // };
+
+    if (!users || users.length === 0) {
+      return { totalUsers: 0, users: [] };
+    }
+
+    const userIds = users.map((u: any) => u.id);
+
+    // 2. Get all transactions for those users
+    const { data: transactions, error: txError } = await supabase
+      .from("transactions")
+      .select("*")
+      .in("user_id", userIds);
+
+    if (txError) throw new Error(txError.message);
+
+    // 3. Map transactions to users
+    const usersWithTransactions = users.map((user: any) => {
+      const userTransactions = transactions.filter(
+        (tx) => tx.user_id === user.id
+      );
+      return {
+        ...user,
+        transactions: userTransactions,
+      };
+    });
+
     return {
-      totalUsers: data?.length || 0,
-      users: data || []
+      totalUsers: users.length,
+      users: usersWithTransactions,
     };
   }
 }
