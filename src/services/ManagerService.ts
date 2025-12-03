@@ -146,11 +146,29 @@ export class ManagerService {
     if (txError)
       throw new Error("Failed to fetch transactions: " + txError.message);
 
+    console.log("Users:", users.length);
+    console.log("Transactions:", transactions.length);
+
+    users.forEach((user) => {
+      console.log(`User ID: (${typeof user.id})`, user.id);
+    });
+
+    transactions.forEach((t) => {
+      console.log(`Transaction user_id: (${typeof t.user_id})`, t.user_id);
+    });
+
     // Build summary
     const summary = users.map((user) => {
-      const userTx = transactions.filter(
-        (t) => String(t.user_id) === String(user.id)
-      );
+      const userTx = transactions.filter((t) => {
+        console.log(
+          "Comparing:",
+          typeof t.user_id,
+          t.user_id,
+          typeof user.id,
+          user.id
+        );
+        return String(t.user_id) === String(user.id);
+      });
 
       const avgBalance = userTx.length
         ? userTx.reduce((sum, t) => sum + Number(t.balance), 0) / userTx.length
