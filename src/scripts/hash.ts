@@ -6,4 +6,4 @@ async function generateHashedPassword(plainPassword : string) {
   console.log(hashed);
 }
 
-generateHashedPassword("Password8!");
+generateHashedPassword("Manager1!");

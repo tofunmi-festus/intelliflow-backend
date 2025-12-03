@@ -8,6 +8,8 @@ import  authMiddleware   from "./middlewares/authMiddleware";
 import { TransactionController } from "./controllers/TransactionController";
 import { ForecastController } from "./controllers/ForecastController";
 import { CreditScoreController } from "./controllers/CreditScoreController";
+import { ManagerController } from "./controllers/ManagerController";
+import ManagerMiddleware from "./middlewares/managerMiddleware";
 
 const app = express();
 
@@ -47,6 +49,10 @@ app.get("/api/dashboard/summary", authMiddleware, TransactionController.getDashb
 app.get("/api/forecast", authMiddleware, ForecastController.getForecast);
 
 app.get("/api/creditscore", authMiddleware, CreditScoreController.getCreditScore);
+
+app.post("/api/manager/login", ManagerController.login);
+
+app.post("/api/manager/logout", ManagerMiddleware, ManagerController.logout);
 
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
