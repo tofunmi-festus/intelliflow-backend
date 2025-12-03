@@ -12,6 +12,8 @@ const authMiddleware_1 = __importDefault(require("./middlewares/authMiddleware")
 const TransactionController_1 = require("./controllers/TransactionController");
 const ForecastController_1 = require("./controllers/ForecastController");
 const CreditScoreController_1 = require("./controllers/CreditScoreController");
+const ManagerController_1 = require("./controllers/ManagerController");
+const managerMiddleware_1 = __importDefault(require("./middlewares/managerMiddleware"));
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
     origin: function (origin, callback) {
@@ -41,6 +43,8 @@ app.get("/api/transactions", authMiddleware_1.default, TransactionController_1.T
 app.get("/api/dashboard/summary", authMiddleware_1.default, TransactionController_1.TransactionController.getDashboardSummary);
 app.get("/api/forecast", authMiddleware_1.default, ForecastController_1.ForecastController.getForecast);
 app.get("/api/creditscore", authMiddleware_1.default, CreditScoreController_1.CreditScoreController.getCreditScore);
+app.post("/api/manager/login", ManagerController_1.ManagerController.login);
+app.post("/api/manager/logout", managerMiddleware_1.default, ManagerController_1.ManagerController.logout);
 // Test protected route
 app.get("/api/me", authMiddleware_1.default, (req, res) => {
     // Cast req as any to safely access user without TS error

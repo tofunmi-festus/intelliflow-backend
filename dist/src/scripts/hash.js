@@ -9,4 +9,4 @@ async function generateHashedPassword(plainPassword) {
     const hashed = await bcrypt_1.default.hash(plainPassword, saltRounds);
     console.log(hashed);
 }
-generateHashedPassword("Password8!");
+generateHashedPassword("Manager1!");
