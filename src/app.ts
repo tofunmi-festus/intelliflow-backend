@@ -54,7 +54,7 @@ app.post("/api/manager/login", ManagerController.login);
 
 app.post("/api/manager/logout", managerMiddleware, ManagerController.logout);
 
-app.get("/manager/users", managerMiddleware, ManagerController.getManagedUsers)
+app.get("/api/manager/users", managerMiddleware, ManagerController.getManagedUsers);
 
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
