@@ -66,7 +66,7 @@ export class ManagerService {
 
     // Save current token to user
     const { error: updateError } = await supabase
-      .from("app_users")
+      .from("managers")
       .update({
         current_access_token: token,
         updated_at: new Date().toISOString(),
