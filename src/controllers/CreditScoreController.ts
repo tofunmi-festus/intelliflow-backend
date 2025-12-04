@@ -18,6 +18,64 @@ interface CreditScoreResult {
   factors: string[];
 }
 
+function summarizeTransactions(transactions: Transaction[]) {
+  let totalCredit = 0;
+  let totalDebit = 0;
+
+  for (const t of transactions) {
+    totalCredit += t.credit ?? 0;
+    totalDebit += t.debit ?? 0;
+  }
+
+  const balance = totalCredit - totalDebit;
+
+  const days = Math.max(
+    1,
+    (new Date(
+      transactions[transactions.length - 1].transaction_date
+    ).getTime() -
+      new Date(transactions[0].transaction_date).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  const averageDailyCashflow = balance / days;
+
+  const creditRatio =
+    totalCredit === 0 ? 0 : Number((totalDebit / totalCredit).toFixed(2));
+
+  return {
+    totalCredit,
+    totalDebit,
+    balance,
+    averageDailyCashflow,
+    creditRatio,
+  };
+}
+
+function classifyRisk(score: number): string {
+  if (score >= 80) return "Low Risk";
+  if (score >= 50) return "Medium Risk";
+  return "High Risk";
+}
+
+function calculateStability(forecast: ForecastPoint[]) {
+  const values = forecast.map((f) => f.predicted_cashflow);
+  const mean =
+    values.reduce((sum, v) => sum + v, 0) / Math.max(values.length, 1);
+
+  const variance =
+    values.reduce((sum, v) => sum + (v - mean) ** 2, 0) /
+    Math.max(values.length, 1);
+  const stdDev = Math.sqrt(variance);
+
+  const stabilityScore = Math.max(
+    0,
+    Math.min(100, 100 - (stdDev / (Math.abs(mean) + 1)) * 100)
+  );
+
+  return Number(stabilityScore.toFixed(2));
+}
+
 function calculateCreditScore(
   transactions: Transaction[],
   forecast: ForecastPoint[]
@@ -45,7 +103,8 @@ function calculateCreditScore(
   }
 
   const credits = recentTxns.map((t) => t.credit ?? 0);
-  const avgCredit = credits.reduce((a, b) => a + b, 0) / (recentTxns.length || 1);
+  const avgCredit =
+    credits.reduce((a, b) => a + b, 0) / (recentTxns.length || 1);
 
   if (avgCredit < 20000) {
     score -= 20;
@@ -145,9 +204,20 @@ export class CreditScoreController {
 
       const creditScoreResult = calculateCreditScore(txs, forecast);
 
+      const summary = summarizeTransactions(txs);
+      const businessStability = calculateStability(forecast);
+      const riskCategory = classifyRisk(creditScoreResult.score);
+
       return res.json({
         success: true,
-        data: creditScoreResult,
+        data: {
+          creditScore: creditScoreResult.score,
+          factors: creditScoreResult.factors,
+          summary,
+          businessStabilityScore: businessStability,
+          riskCategory,
+          forecastDays: forecast.length,
+        },
       });
     } catch (err: any) {
       return res.status(500).json({
