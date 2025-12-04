@@ -8,7 +8,7 @@ class TransactionService {
         if (!userId)
             throw new Error("User ID missing");
         const { data, error } = await supabase_1.supabase
-            .from("transactions")
+            .from("transactions_duplicate_entry")
             .select("*")
             .eq("user_id", userId)
             .order("transaction_date", { ascending: false });
@@ -20,21 +20,21 @@ class TransactionService {
     static async getDashboardSummary(userId) {
         // 1. Get total credits
         const { data: creditsData, error: creditsError } = await supabase_1.supabase
-            .from("transactions")
+            .from("transactions_duplicate_entry")
             .select("credit")
             .eq("user_id", userId);
         if (creditsError)
             throw creditsError;
         // 2. Get total debits
         const { data: debitsData, error: debitsError } = await supabase_1.supabase
-            .from("transactions")
+            .from("transactions_duplicate_entry")
             .select("debit")
             .eq("user_id", userId);
         if (debitsError)
             throw debitsError;
         // 3. Get latest balance (based on the latest transaction_date)
         const { data: latestTransaction, error: latestError } = await supabase_1.supabase
-            .from("transactions")
+            .from("transactions_duplicate_entry")
             .select("balance")
             .eq("user_id", userId)
             .order("transaction_date", { ascending: false })

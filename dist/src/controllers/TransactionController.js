@@ -13,7 +13,7 @@ class TransactionController {
                     .json({ success: false, message: "Unauthorized" });
             }
             let query = supabase_1.supabase
-                .from("transactions")
+                .from("transactions_duplicate_entry")
                 .select("*")
                 .eq("user_id", userId);
             const { startDate, endDate, minAmount, type } = req.query;
@@ -84,21 +84,24 @@ class TransactionController {
                     // Get prediction from ML service
                     const predicted = await TransactionService_1.TransactionService.classifyTransactionRecord(tx);
                     // ✅ UNCOMMENT AND FIX THIS - Update the database!
-                    const { error: updateError } = await supabase_1.supabase
-                        .from("transactions")
-                        .update({
-                        predicted_category: predicted, // ⚠️ Changed from 'categories' to 'predicted_category'
-                        updated_at: new Date().toISOString(),
-                    })
-                        .eq("id", tx.id);
-                    if (updateError) {
-                        console.error(`Failed to update transaction ${tx.id}:`, updateError.message);
-                        return {
-                            ...tx,
-                            predicted_category: predicted,
-                            update_failed: true,
-                        };
-                    }
+                    // const { error: updateError } = await supabase
+                    //   .from("transactions")
+                    //   .update({
+                    //     predicted_category: predicted, // ⚠️ Changed from 'categories' to 'predicted_category'
+                    //     updated_at: new Date().toISOString(),
+                    //   })
+                    //   .eq("id", tx.id);
+                    // if (updateError) {
+                    //   console.error(
+                    //     `Failed to update transaction ${tx.id}:`,
+                    //     updateError.message
+                    //   );
+                    //   return {
+                    //     ...tx,
+                    //     predicted_category: predicted,
+                    //     update_failed: true,
+                    //   };
+                    // }
                     return {
                         ...tx,
                         predicted_category: predicted,
