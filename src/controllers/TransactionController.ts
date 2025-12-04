@@ -15,7 +15,7 @@ export class TransactionController {
       }
 
       let query = supabase
-        .from("transactions")
+        .from("transactions_duplicate_entry")
         .select("*")
         .eq("user_id", userId);
 
