@@ -1,9 +1,9 @@
 import NodeCache from "node-cache";
 
 // Cache configurations
-const CLASSIFICATION_CACHE_TTL = 3600; // 1 hour
-const FORECAST_CACHE_TTL = 3600; // 1 hour
-const TRANSACTION_HASH_TTL = 600; // 10 minutes - check frequency for transaction changes
+const CLASSIFICATION_CACHE_TTL = 86400; // 24 hours
+const FORECAST_CACHE_TTL = 86400; // 24 hours
+const TRANSACTION_HASH_TTL = 86400; // 24 hours - store hash for 24 hours
 
 interface CacheConfig {
   stdTTL: number;
@@ -47,11 +47,26 @@ export class CacheService {
     const currentHash = this.generateTransactionHash(transactions);
     const cachedHash = this.transactionHashCache.get(cacheKey) as string | undefined;
 
-    // Store new hash
-    this.transactionHashCache.set(cacheKey, currentHash);
+    console.log(`[CacheService] User ${userId} - Current hash: ${currentHash}, Cached hash: ${cachedHash}`);
 
-    // If no cached hash or hash changed, return true
-    return !cachedHash || cachedHash !== currentHash;
+    // If no cached hash, this is first time - store and return true
+    if (!cachedHash) {
+      console.log(`[CacheService] No cached hash found, storing new hash`);
+      this.transactionHashCache.set(cacheKey, currentHash);
+      return true; // Transactions changed (first load)
+    }
+
+    // Compare hashes
+    const changed = currentHash !== cachedHash;
+    
+    if (changed) {
+      console.log(`[CacheService] ⚠️ Transaction hash changed! Invalidating cache`);
+      this.transactionHashCache.set(cacheKey, currentHash);
+    } else {
+      console.log(`[CacheService] ✅ Transaction hash unchanged, cache is valid`);
+    }
+
+    return changed;
   }
 
   /**

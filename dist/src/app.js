@@ -37,13 +37,21 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
+// Middleware to set cache headers for GET requests
+const setCacheHeaders = (req, res, next) => {
+    res.set({
+        "Cache-Control": "private, max-age=300, must-revalidate",
+        "Pragma": "cache",
+    });
+    next();
+};
 // Protected routes
 app.post("/api/auth/login", AuthController_1.AuthController.login);
 app.post("/api/auth/logout", authMiddleware_1.default, AuthController_1.AuthController.logout);
-app.get("/api/transactions", authMiddleware_1.default, TransactionController_1.TransactionController.getMyTransactions);
-app.get("/api/dashboard/summary", authMiddleware_1.default, TransactionController_1.TransactionController.getDashboardSummary);
-app.get("/api/forecast", authMiddleware_1.default, ForecastController_1.ForecastController.getForecast);
-app.get("/api/creditscore", authMiddleware_1.default, CreditScoreController_1.CreditScoreController.getCreditScore);
+app.get("/api/transactions", authMiddleware_1.default, setCacheHeaders, TransactionController_1.TransactionController.getMyTransactions);
+app.get("/api/dashboard/summary", authMiddleware_1.default, setCacheHeaders, TransactionController_1.TransactionController.getDashboardSummary);
+app.get("/api/forecast", authMiddleware_1.default, setCacheHeaders, ForecastController_1.ForecastController.getForecast);
+app.get("/api/creditscore", authMiddleware_1.default, setCacheHeaders, CreditScoreController_1.CreditScoreController.getCreditScore);
 app.post("/api/manager/login", ManagerController_1.ManagerController.login);
 app.post("/api/manager/logout", managerMiddleware_1.default, ManagerController_1.ManagerController.logout);
 app.get("/api/manager/users", managerMiddleware_1.default, ManagerController_1.ManagerController.getManagedUsers);

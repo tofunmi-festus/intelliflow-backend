@@ -48,7 +48,7 @@ export class ForecastController {
 
       const { data: transactions, error: fetchError } = await supabase
         .from("transactions_duplicate_entry")
-        .select("transaction_date, debit, credit")
+        .select("id, transaction_date, debit, credit")
         .eq("user_id", userId)
         .order("transaction_date", { ascending: true });
 

@@ -37,19 +37,27 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware to set cache headers for GET requests
+const setCacheHeaders = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  res.set({
+    "Cache-Control": "private, max-age=300, must-revalidate",
+    "Pragma": "cache",
+  });
+  next();
+};
 
 // Protected routes
 app.post("/api/auth/login", AuthController.login);
 
 app.post("/api/auth/logout", authMiddleware, AuthController.logout);
 
-app.get("/api/transactions", authMiddleware, TransactionController.getMyTransactions);
+app.get("/api/transactions", authMiddleware, setCacheHeaders, TransactionController.getMyTransactions);
 
-app.get("/api/dashboard/summary", authMiddleware, TransactionController.getDashboardSummary);
+app.get("/api/dashboard/summary", authMiddleware, setCacheHeaders, TransactionController.getDashboardSummary);
 
-app.get("/api/forecast", authMiddleware, ForecastController.getForecast);
+app.get("/api/forecast", authMiddleware, setCacheHeaders, ForecastController.getForecast);
 
-app.get("/api/creditscore", authMiddleware, CreditScoreController.getCreditScore);
+app.get("/api/creditscore", authMiddleware, setCacheHeaders, CreditScoreController.getCreditScore);
 
 app.post("/api/manager/login", ManagerController.login);
 
