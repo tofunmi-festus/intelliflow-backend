@@ -2,6 +2,7 @@ import { Response, Request } from "express";
 import { AuthRequest } from "../middlewares/authMiddleware";
 import { supabase } from "../config/supabase";
 import { TransactionService } from "../services/TransactionService";
+import { CacheService } from "../services/CacheService";
 
 export class TransactionController {
   static async getMyTransactions(req: AuthRequest, res: Response) {
@@ -47,6 +48,26 @@ export class TransactionController {
           count: 0,
           transactions: [],
         });
+      }
+
+      // ===== CHECK IF TRANSACTIONS HAVE CHANGED =====
+      const hasChanged = CacheService.hasTransactionChanged(userId, data);
+      
+      if (!hasChanged) {
+        // Transactions haven't changed, try to return cached classifications
+        const cachedClassification = CacheService.getClassification(userId);
+        if (cachedClassification) {
+          console.log(`⚡ Returning cached classifications for user ${userId}`);
+          return res.json({
+            success: true,
+            count: cachedClassification.length,
+            transactions: cachedClassification,
+            cached: true,
+          });
+        }
+      } else {
+        console.log(`🔄 Transactions changed, invalidating classification cache`);
+        CacheService.invalidateClassification(userId);
       }
 
       // ===== CLASSIFY EACH TRANSACTION =====
@@ -148,10 +169,14 @@ export class TransactionController {
         })
         .filter(Boolean);
 
+      // Cache the classifications
+      CacheService.setClassification(userId, processedTransactions);
+
       return res.json({
         success: true,
         count: processedTransactions.length,
         transactions: processedTransactions,
+        cached: false,
       });
     } catch (err: any) {
       console.error("Transaction fetch error:", err);

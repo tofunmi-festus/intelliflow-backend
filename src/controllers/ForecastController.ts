@@ -2,6 +2,7 @@ import { Response, Request } from "express";
 import { getCashflowForecast, Transaction } from "../services/ForecastClient";
 import { supabase } from "../config/supabase";
 import { InsightService } from "../services/InsightService";
+import { CacheService } from "../services/CacheService";
 
 export class ForecastController {
   /**
@@ -72,6 +73,25 @@ export class ForecastController {
         `[ForecastController] Found ${transactions.length} transactions`
       );
 
+      // ===== CHECK IF TRANSACTIONS HAVE CHANGED =====
+      const hasChanged = CacheService.hasTransactionChanged(userId, transactions);
+      
+      if (!hasChanged) {
+        // Transactions haven't changed, try to return cached forecast
+        const cachedForecast = CacheService.getForecast(userId, days);
+        if (cachedForecast) {
+          console.log(`[ForecastController] ⚡ Returning cached forecast for user ${userId}`);
+          return res.json({
+            success: true,
+            data: cachedForecast,
+            cached: true,
+          });
+        }
+      } else {
+        console.log(`[ForecastController] 🔄 Transactions changed, invalidating cache`);
+        CacheService.invalidateForecast(userId);
+      }
+
       // ===== STEP 4: Validate minimum transaction count =====
       if (transactions.length < minTransactions) {
         return res.status(400).json({
@@ -124,15 +144,21 @@ export class ForecastController {
       }
 
       // ===== STEP 7: Return forecast to client =====
+      const responseData = {
+        forecast: forecast.forecast,
+        insight: insights,
+        transactionCount: txs.length,
+        forecastDays: days,
+        generatedAt: new Date().toISOString(),
+      };
+
+      // Cache the result
+      CacheService.setForecast(userId, days, responseData);
+
       return res.json({
         success: true,
-        data: {
-          forecast: forecast.forecast,
-          insight: insights,
-          transactionCount: txs.length,
-          forecastDays: days,
-          generatedAt: new Date().toISOString(),
-        },
+        data: responseData,
+        cached: false,
       });
     } catch (err: any) {
       console.error(`[ForecastController] Error:`, err.message);

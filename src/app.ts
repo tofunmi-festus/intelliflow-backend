@@ -10,6 +10,7 @@ import { ForecastController } from "./controllers/ForecastController";
 import { CreditScoreController } from "./controllers/CreditScoreController";
 import { ManagerController } from "./controllers/ManagerController";
 import managerMiddleware from "./middlewares/managerMiddleware";
+import { CacheService } from "./services/CacheService";
 
 const app = express();
 
@@ -74,6 +75,23 @@ app.get("/", (req, res) => {
 // Health check endpoint for Vercel
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", service: "backend" });
+});
+
+// Cache management endpoints (development only)
+app.get("/api/cache/stats", (req, res) => {
+  const stats = CacheService.getStats();
+  return res.json({
+    success: true,
+    stats,
+  });
+});
+
+app.delete("/api/cache/clear", (req, res) => {
+  CacheService.clearAll();
+  return res.json({
+    success: true,
+    message: "All caches cleared",
+  });
 });
 
 export default app;

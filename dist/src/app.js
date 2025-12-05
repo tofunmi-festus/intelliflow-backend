@@ -14,6 +14,7 @@ const ForecastController_1 = require("./controllers/ForecastController");
 const CreditScoreController_1 = require("./controllers/CreditScoreController");
 const ManagerController_1 = require("./controllers/ManagerController");
 const managerMiddleware_1 = __importDefault(require("./middlewares/managerMiddleware"));
+const CacheService_1 = require("./services/CacheService");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
     origin: function (origin, callback) {
@@ -60,5 +61,20 @@ app.get("/", (req, res) => {
 // Health check endpoint for Vercel
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok", service: "backend" });
+});
+// Cache management endpoints (development only)
+app.get("/api/cache/stats", (req, res) => {
+    const stats = CacheService_1.CacheService.getStats();
+    return res.json({
+        success: true,
+        stats,
+    });
+});
+app.delete("/api/cache/clear", (req, res) => {
+    CacheService_1.CacheService.clearAll();
+    return res.json({
+        success: true,
+        message: "All caches cleared",
+    });
 });
 exports.default = app;

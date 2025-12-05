@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionController = void 0;
 const supabase_1 = require("../config/supabase");
 const TransactionService_1 = require("../services/TransactionService");
+const CacheService_1 = require("../services/CacheService");
 class TransactionController {
     static async getMyTransactions(req, res) {
         try {
@@ -40,6 +41,25 @@ class TransactionController {
                     count: 0,
                     transactions: [],
                 });
+            }
+            // ===== CHECK IF TRANSACTIONS HAVE CHANGED =====
+            const hasChanged = CacheService_1.CacheService.hasTransactionChanged(userId, data);
+            if (!hasChanged) {
+                // Transactions haven't changed, try to return cached classifications
+                const cachedClassification = CacheService_1.CacheService.getClassification(userId);
+                if (cachedClassification) {
+                    console.log(`⚡ Returning cached classifications for user ${userId}`);
+                    return res.json({
+                        success: true,
+                        count: cachedClassification.length,
+                        transactions: cachedClassification,
+                        cached: true,
+                    });
+                }
+            }
+            else {
+                console.log(`🔄 Transactions changed, invalidating classification cache`);
+                CacheService_1.CacheService.invalidateClassification(userId);
             }
             // ===== CLASSIFY EACH TRANSACTION =====
             // const classified = await Promise.allSettled(
@@ -128,10 +148,13 @@ class TransactionController {
                 }
             })
                 .filter(Boolean);
+            // Cache the classifications
+            CacheService_1.CacheService.setClassification(userId, processedTransactions);
             return res.json({
                 success: true,
                 count: processedTransactions.length,
                 transactions: processedTransactions,
+                cached: false,
             });
         }
         catch (err) {
