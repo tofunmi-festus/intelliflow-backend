@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
+import { createHash } from "crypto";
 import { AuthController } from "./controllers/AuthController";
 import  authMiddleware   from "./middlewares/authMiddleware";
 import { TransactionController } from "./controllers/TransactionController";
@@ -37,12 +38,33 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware to set cache headers for GET requests
+// Middleware to set cache headers for GET requests (1 hour cache)
 const setCacheHeaders = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   res.set({
-    "Cache-Control": "private, max-age=300, must-revalidate",
+    "Cache-Control": "private, max-age=3600, immutable",
     "Pragma": "cache",
   });
+  next();
+};
+
+// Middleware to generate and handle ETags
+const eTagMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const originalJson = res.json.bind(res);
+  
+  res.json = function(body: any) {
+    // Generate ETag from response body
+    const etag = createHash('md5').update(JSON.stringify(body)).digest('hex');
+    
+    // Check if client sent If-None-Match header
+    if (req.headers['if-none-match'] === etag) {
+      return res.status(304).end(); // Not Modified
+    }
+    
+    // Set ETag header
+    res.set('ETag', etag);
+    return originalJson(body);
+  };
+  
   next();
 };
 
@@ -51,13 +73,13 @@ app.post("/api/auth/login", AuthController.login);
 
 app.post("/api/auth/logout", authMiddleware, AuthController.logout);
 
-app.get("/api/transactions", authMiddleware, setCacheHeaders, TransactionController.getMyTransactions);
+app.get("/api/transactions", authMiddleware, eTagMiddleware, setCacheHeaders, TransactionController.getMyTransactions);
 
-app.get("/api/dashboard/summary", authMiddleware, setCacheHeaders, TransactionController.getDashboardSummary);
+app.get("/api/dashboard/summary", authMiddleware, eTagMiddleware, setCacheHeaders, TransactionController.getDashboardSummary);
 
-app.get("/api/forecast", authMiddleware, setCacheHeaders, ForecastController.getForecast);
+app.get("/api/forecast", authMiddleware, eTagMiddleware, setCacheHeaders, ForecastController.getForecast);
 
-app.get("/api/creditscore", authMiddleware, setCacheHeaders, CreditScoreController.getCreditScore);
+app.get("/api/creditscore", authMiddleware, eTagMiddleware, setCacheHeaders, CreditScoreController.getCreditScore);
 
 app.post("/api/manager/login", ManagerController.login);
 
