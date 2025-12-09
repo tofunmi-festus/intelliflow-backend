@@ -19,6 +19,7 @@ app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
       "https://intelli-flow-frontend-r7wo.vercel.app",
+      "https://intelli-flow-frontend.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001"
     ];
