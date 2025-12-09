@@ -110,6 +110,9 @@ app.post("/api/invoices/:id/reminders", authMiddleware, InvoiceController.schedu
 
 app.delete("/api/invoices/:id", authMiddleware, InvoiceController.deleteInvoice);
 
+// Send invoice endpoint
+app.post("/api/invoices/:id/send", authMiddleware, InvoiceController.sendInvoice);
+
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
   // Cast req as any to safely access user without TS error

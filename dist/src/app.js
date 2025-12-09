@@ -85,6 +85,8 @@ app.post("/api/invoices/:id/payments", authMiddleware_1.default, InvoiceControll
 app.get("/api/invoices/:id/payments", authMiddleware_1.default, InvoiceController_1.InvoiceController.getPaymentHistory);
 app.post("/api/invoices/:id/reminders", authMiddleware_1.default, InvoiceController_1.InvoiceController.scheduleReminder);
 app.delete("/api/invoices/:id", authMiddleware_1.default, InvoiceController_1.InvoiceController.deleteInvoice);
+// Send invoice endpoint
+app.post("/api/invoices/:id/send", authMiddleware_1.default, InvoiceController_1.InvoiceController.sendInvoice);
 // Test protected route
 app.get("/api/me", authMiddleware_1.default, (req, res) => {
     // Cast req as any to safely access user without TS error
