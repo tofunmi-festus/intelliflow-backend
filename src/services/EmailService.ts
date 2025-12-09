@@ -19,24 +19,44 @@ export class EmailService {
   private static transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
-    secure: false, // true for 465, false for other ports
+    secure: false,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-    connectionTimeout: 30000, // 30 seconds
-    socketTimeout: 30000, // 30 seconds
-    maxConnections: 5,
+    connectionTimeout: 60000, // 60 seconds
+    socketTimeout: 60000, // 60 seconds
+    greetingTimeout: 10000,
+    connectionUrl: undefined,
+    maxConnections: 3,
     maxMessages: 100,
+    rateDelta: 1000,
+    rateLimit: 10,
+    tls: {
+      rejectUnauthorized: false, // Allow self-signed certs (Gmail)
+    },
   } as any);
 
   constructor() {
     // Verify transporter configuration on initialization
+    EmailService.verifyConnection();
+  }
+
+  private static verifyConnection() {
     EmailService.transporter.verify((error, success) => {
       if (error) {
-        console.error("[EmailService] Transporter verification failed:", error.message);
+        console.error(
+          "[EmailService] ❌ TRANSPORTER VERIFICATION FAILED:",
+          error.message
+        );
+        console.error("[EmailService] Check your Gmail credentials:");
+        console.error("  - EMAIL_USER:", process.env.EMAIL_USER);
+        console.error("  - EMAIL_PASSWORD length:", process.env.EMAIL_PASSWORD?.length);
+        console.error("  - EMAIL_FROM:", process.env.EMAIL_FROM);
       } else {
-        console.log("[EmailService] Transporter is ready to send emails");
+        console.log(
+          "[EmailService] ✅ Transporter is ready to send emails"
+        );
       }
     });
   }

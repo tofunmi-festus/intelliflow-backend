@@ -147,4 +147,56 @@ app.delete("/api/cache/clear", (req, res) => {
   });
 });
 
+// Email diagnostic endpoint (for testing only)
+app.post("/api/email/test", async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email address required",
+      });
+    }
+
+    console.log("[Email Test] Testing email to:", email);
+    console.log("[Email Test] Configuration:", {
+      EMAIL_USER: process.env.EMAIL_USER,
+      EMAIL_FROM: process.env.EMAIL_FROM,
+      EMAIL_PASSWORD_LENGTH: process.env.EMAIL_PASSWORD?.length,
+    });
+
+    const nodemailer = require("nodemailer");
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || "noreply@intelliflow.com",
+      to: email,
+      subject: "IntelliFlow Email Test",
+      html: "<h1>Email Service Test</h1><p>If you received this, email is working!</p>",
+    });
+
+    return res.json({
+      success: true,
+      message: "Test email sent successfully",
+      sentTo: email,
+    });
+  } catch (error: any) {
+    console.error("[Email Test] Error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+      hint: "Check .env credentials - EMAIL_PASSWORD must be Gmail App Password, not regular password",
+    });
+  }
+});
+
 export default app;
