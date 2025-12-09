@@ -17,12 +17,18 @@ export interface EmailConfig {
 
 export class EmailService {
   private static transporter = nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || "gmail",
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-  });
+    connectionTimeout: 30000, // 30 seconds
+    socketTimeout: 30000, // 30 seconds
+    maxConnections: 5,
+    maxMessages: 100,
+  } as any);
 
   constructor() {
     // Verify transporter configuration on initialization
@@ -91,7 +97,8 @@ export class EmailService {
         `[EmailService] Sending invoice ${invoiceNumber} to ${customerEmail}`
       );
 
-      const info = await this.transporter.sendMail(mailOptions);
+      // Send email with retry logic
+      const info = await this.sendMailWithRetry(mailOptions, 3);
 
       console.log(`[EmailService] Invoice email sent successfully. Message ID: ${info.messageId}`);
       return true;
@@ -134,13 +141,13 @@ export class EmailService {
 
       console.log(`[EmailService] Sending reminder for invoice ${invoiceNumber} to ${customerEmail}`);
 
-      const info = await this.transporter.sendMail(mailOptions);
+      const info = await this.sendMailWithRetry(mailOptions, 3);
 
       console.log(`[EmailService] Reminder email sent successfully. Message ID: ${info.messageId}`);
       return true;
     } catch (error: any) {
       console.error(`[EmailService] Failed to send reminder email:`, error.message);
-      throw new Error(`Failed to send reminder email: ${error.message}`);
+      return false;
     }
   }
 
@@ -173,7 +180,7 @@ export class EmailService {
 
       console.log(`[EmailService] Sending payment confirmation for invoice ${invoiceNumber} to ${customerEmail}`);
 
-      const info = await this.transporter.sendMail(mailOptions);
+      const info = await this.sendMailWithRetry(mailOptions, 3);
 
       console.log(`[EmailService] Payment confirmation sent successfully. Message ID: ${info.messageId}`);
       return true;
@@ -181,6 +188,37 @@ export class EmailService {
       console.error(`[EmailService] Failed to send payment confirmation:`, error.message);
       return false;
     }
+  }
+
+  /**
+   * Send mail with retry logic for timeout issues
+   */
+  private static async sendMailWithRetry(mailOptions: any, maxRetries: number = 3): Promise<any> {
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[EmailService] Send attempt ${attempt}/${maxRetries}`);
+        const info = await this.transporter.sendMail(mailOptions);
+        return info;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(
+          `[EmailService] Attempt ${attempt} failed: ${error.message}`
+        );
+
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.log(
+            `[EmailService] Retrying in ${waitTime / 1000} seconds...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    throw lastError;
   }
 
   /**
