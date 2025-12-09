@@ -14,6 +14,7 @@ const TransactionController_1 = require("./controllers/TransactionController");
 const ForecastController_1 = require("./controllers/ForecastController");
 const CreditScoreController_1 = require("./controllers/CreditScoreController");
 const ManagerController_1 = require("./controllers/ManagerController");
+const InvoiceController_1 = require("./controllers/InvoiceController");
 const managerMiddleware_1 = __importDefault(require("./middlewares/managerMiddleware"));
 const CacheService_1 = require("./services/CacheService");
 const app = (0, express_1.default)();
@@ -74,6 +75,16 @@ app.post("/api/manager/login", ManagerController_1.ManagerController.login);
 app.post("/api/manager/logout", managerMiddleware_1.default, ManagerController_1.ManagerController.logout);
 app.get("/api/manager/users", managerMiddleware_1.default, ManagerController_1.ManagerController.getManagedUsers);
 app.get("/api/manager/full", managerMiddleware_1.default, ManagerController_1.ManagerController.getManagedUsersWithTransactions);
+// InvoiceFlow Hub Routes
+app.post("/api/invoices", authMiddleware_1.default, InvoiceController_1.InvoiceController.createInvoice);
+app.get("/api/invoices", authMiddleware_1.default, eTagMiddleware, setCacheHeaders, InvoiceController_1.InvoiceController.getInvoices);
+app.get("/api/invoices/dashboard/summary", authMiddleware_1.default, eTagMiddleware, setCacheHeaders, InvoiceController_1.InvoiceController.getDashboardSummary);
+app.get("/api/invoices/:id", authMiddleware_1.default, InvoiceController_1.InvoiceController.getInvoice);
+app.put("/api/invoices/:id/status", authMiddleware_1.default, InvoiceController_1.InvoiceController.updateInvoiceStatus);
+app.post("/api/invoices/:id/payments", authMiddleware_1.default, InvoiceController_1.InvoiceController.recordPayment);
+app.get("/api/invoices/:id/payments", authMiddleware_1.default, InvoiceController_1.InvoiceController.getPaymentHistory);
+app.post("/api/invoices/:id/reminders", authMiddleware_1.default, InvoiceController_1.InvoiceController.scheduleReminder);
+app.delete("/api/invoices/:id", authMiddleware_1.default, InvoiceController_1.InvoiceController.deleteInvoice);
 // Test protected route
 app.get("/api/me", authMiddleware_1.default, (req, res) => {
     // Cast req as any to safely access user without TS error

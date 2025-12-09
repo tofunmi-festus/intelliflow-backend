@@ -10,6 +10,7 @@ import { TransactionController } from "./controllers/TransactionController";
 import { ForecastController } from "./controllers/ForecastController";
 import { CreditScoreController } from "./controllers/CreditScoreController";
 import { ManagerController } from "./controllers/ManagerController";
+import { InvoiceController } from "./controllers/InvoiceController";
 import managerMiddleware from "./middlewares/managerMiddleware";
 import { CacheService } from "./services/CacheService";
 
@@ -90,6 +91,24 @@ app.get("/api/manager/users", managerMiddleware, ManagerController.getManagedUse
 
 app.get("/api/manager/full", managerMiddleware, ManagerController.getManagedUsersWithTransactions);
 
+// InvoiceFlow Hub Routes
+app.post("/api/invoices", authMiddleware, InvoiceController.createInvoice);
+
+app.get("/api/invoices", authMiddleware, eTagMiddleware, setCacheHeaders, InvoiceController.getInvoices);
+
+app.get("/api/invoices/dashboard/summary", authMiddleware, eTagMiddleware, setCacheHeaders, InvoiceController.getDashboardSummary);
+
+app.get("/api/invoices/:id", authMiddleware, InvoiceController.getInvoice);
+
+app.put("/api/invoices/:id/status", authMiddleware, InvoiceController.updateInvoiceStatus);
+
+app.post("/api/invoices/:id/payments", authMiddleware, InvoiceController.recordPayment);
+
+app.get("/api/invoices/:id/payments", authMiddleware, InvoiceController.getPaymentHistory);
+
+app.post("/api/invoices/:id/reminders", authMiddleware, InvoiceController.scheduleReminder);
+
+app.delete("/api/invoices/:id", authMiddleware, InvoiceController.deleteInvoice);
 
 // Test protected route
 app.get("/api/me", authMiddleware, (req, res) => {
