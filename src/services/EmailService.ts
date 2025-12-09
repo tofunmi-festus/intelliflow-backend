@@ -24,6 +24,17 @@ export class EmailService {
     },
   });
 
+  constructor() {
+    // Verify transporter configuration on initialization
+    EmailService.transporter.verify((error, success) => {
+      if (error) {
+        console.error("[EmailService] Transporter verification failed:", error.message);
+      } else {
+        console.log("[EmailService] Transporter is ready to send emails");
+      }
+    });
+  }
+
   /**
    * Send invoice email to customer with PDF attachment
    */
@@ -86,7 +97,7 @@ export class EmailService {
       return true;
     } catch (error: any) {
       console.error(`[EmailService] Failed to send invoice email:`, error.message);
-      throw new Error(`Failed to send invoice email: ${error.message}`);
+      return false;
     }
   }
 
@@ -168,7 +179,7 @@ export class EmailService {
       return true;
     } catch (error: any) {
       console.error(`[EmailService] Failed to send payment confirmation:`, error.message);
-      throw new Error(`Failed to send payment confirmation: ${error.message}`);
+      return false;
     }
   }
 
