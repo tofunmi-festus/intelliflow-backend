@@ -161,40 +161,45 @@ app.post("/api/email/test", async (req, res) => {
 
     console.log("[Email Test] Testing email to:", email);
     console.log("[Email Test] Configuration:", {
-      EMAIL_USER: process.env.EMAIL_USER,
       EMAIL_FROM: process.env.EMAIL_FROM,
-      EMAIL_PASSWORD_LENGTH: process.env.EMAIL_PASSWORD?.length,
+      BREVO_API_KEY_SET: !!process.env.BREVO_API_KEY,
     });
 
-    const nodemailer = require("nodemailer");
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
+    const axios = require("axios");
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        to: [{ email, name: "Test User" }],
+        subject: "IntelliFlow Email Test",
+        htmlContent:
+          "<h1>Email Service Test</h1><p>If you received this, Brevo email is working!</p>",
+        sender: {
+          name: "IntelliFlow",
+          email: process.env.EMAIL_FROM || "noreply@intelliflow.com",
+        },
       },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || "noreply@intelliflow.com",
-      to: email,
-      subject: "IntelliFlow Email Test",
-      html: "<h1>Email Service Test</h1><p>If you received this, email is working!</p>",
-    });
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     return res.json({
       success: true,
-      message: "Test email sent successfully",
+      message: "Test email sent successfully via Brevo",
       sentTo: email,
+      messageId: response.data.messageId,
     });
   } catch (error: any) {
     console.error("[Email Test] Error:", error.message);
+    const errorMsg =
+      error.response?.data?.message || error.message || "Unknown error";
     return res.status(500).json({
       success: false,
-      message: error.message,
-      hint: "Check .env credentials - EMAIL_PASSWORD must be Gmail App Password, not regular password",
+      message: errorMsg,
+      hint: "Get free Brevo API key at https://www.brevo.com - sign up and check Settings > SMTP & API",
     });
   }
 });

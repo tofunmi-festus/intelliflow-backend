@@ -1,6 +1,5 @@
-import nodemailer from "nodemailer";
-import { readFileSync } from "fs";
-import { extname } from "path";
+import * as fs from "fs";
+import axios, { AxiosError } from "axios";
 
 export interface EmailConfig {
   from: string;
@@ -15,50 +14,32 @@ export interface EmailConfig {
   }>;
 }
 
+/**
+ * Brevo (formerly Sendinblue) Email Service
+ * More reliable than Gmail for transactional emails
+ */
 export class EmailService {
-  private static transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    connectionTimeout: 60000, // 60 seconds
-    socketTimeout: 60000, // 60 seconds
-    greetingTimeout: 10000,
-    connectionUrl: undefined,
-    maxConnections: 3,
-    maxMessages: 100,
-    rateDelta: 1000,
-    rateLimit: 10,
-    tls: {
-      rejectUnauthorized: false, // Allow self-signed certs (Gmail)
-    },
-  } as any);
+  private static readonly BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+  private static readonly API_KEY = process.env.BREVO_API_KEY;
+  private static readonly FROM_EMAIL = process.env.EMAIL_FROM || "noreply@intelliflow.com";
+  private static readonly FROM_NAME = "IntelliFlow";
 
   constructor() {
-    // Verify transporter configuration on initialization
-    EmailService.verifyConnection();
+    EmailService.verifyConfiguration();
   }
 
-  private static verifyConnection() {
-    EmailService.transporter.verify((error, success) => {
-      if (error) {
-        console.error(
-          "[EmailService] ❌ TRANSPORTER VERIFICATION FAILED:",
-          error.message
-        );
-        console.error("[EmailService] Check your Gmail credentials:");
-        console.error("  - EMAIL_USER:", process.env.EMAIL_USER);
-        console.error("  - EMAIL_PASSWORD length:", process.env.EMAIL_PASSWORD?.length);
-        console.error("  - EMAIL_FROM:", process.env.EMAIL_FROM);
-      } else {
-        console.log(
-          "[EmailService] ✅ Transporter is ready to send emails"
-        );
-      }
-    });
+  private static verifyConfiguration() {
+    if (!this.API_KEY) {
+      console.error(
+        "[EmailService] ❌ BREVO_API_KEY not found in environment variables"
+      );
+      console.error(
+        "[EmailService] Please add BREVO_API_KEY to your .env file"
+      );
+      console.error("[EmailService] Get a free account at: https://www.brevo.com");
+    } else {
+      console.log("[EmailService] ✅ Brevo API configured and ready");
+    }
   }
 
   /**
@@ -84,43 +65,34 @@ export class EmailService {
         invoiceLink
       );
 
-      const mailOptions: any = {
-        from: process.env.EMAIL_FROM || "noreply@intelliflow.com",
-        to: customerEmail,
-        subject: `Invoice ${invoiceNumber} - Payment Due ${dueDate}`,
-        html,
-      };
-
-      // Add PDF attachment if path provided
-      if (pdfPath) {
-        try {
-          const pdfBuffer = readFileSync(pdfPath);
-          mailOptions.attachments = [
-            {
-              filename: `${invoiceNumber}.pdf`,
-              content: pdfBuffer,
-              contentType: "application/pdf",
-            },
-          ];
-          console.log(
-            `[EmailService] Attaching PDF: ${invoiceNumber}.pdf`
-          );
-        } catch (pdfError: any) {
-          console.warn(
-            `[EmailService] Warning: Could not attach PDF - ${pdfError.message}`
-          );
-          // Continue sending email even if PDF attachment fails
-        }
-      }
-
       console.log(
         `[EmailService] Sending invoice ${invoiceNumber} to ${customerEmail}`
       );
 
-      // Send email with retry logic
-      const info = await this.sendMailWithRetry(mailOptions, 3);
+      const response = await this.sendEmailWithRetry(
+        {
+          to: [{ email: customerEmail, name: customerName }],
+          subject: `Invoice ${invoiceNumber} - Payment Due ${dueDate}`,
+          htmlContent: html,
+          sender: {
+            name: this.FROM_NAME,
+            email: this.FROM_EMAIL,
+          },
+          attachment: pdfPath
+            ? [
+                {
+                  content: fs.readFileSync(pdfPath).toString("base64"),
+                  name: `${invoiceNumber}.pdf`,
+                },
+              ]
+            : undefined,
+        },
+        3 // max retries
+      );
 
-      console.log(`[EmailService] Invoice email sent successfully. Message ID: ${info.messageId}`);
+      console.log(
+        `[EmailService] Invoice email sent successfully to ${customerEmail}`
+      );
       return true;
     } catch (error: any) {
       console.error(`[EmailService] Failed to send invoice email:`, error.message);
@@ -150,20 +122,28 @@ export class EmailService {
         daysOverdue
       );
 
-      const mailOptions = {
-        from: process.env.EMAIL_FROM || "noreply@intelliflow.com",
-        to: customerEmail,
-        subject: daysOverdue
-          ? `URGENT: Invoice ${invoiceNumber} is ${daysOverdue} days overdue`
-          : `Reminder: Invoice ${invoiceNumber} is due on ${dueDate}`,
-        html,
-      };
+      console.log(
+        `[EmailService] Sending payment reminder for ${invoiceNumber} to ${customerEmail}`
+      );
 
-      console.log(`[EmailService] Sending reminder for invoice ${invoiceNumber} to ${customerEmail}`);
+      await this.sendEmailWithRetry(
+        {
+          to: [{ email: customerEmail, name: customerName }],
+          subject: daysOverdue
+            ? `URGENT: Invoice ${invoiceNumber} is ${daysOverdue} days overdue`
+            : `Reminder: Invoice ${invoiceNumber} is due on ${dueDate}`,
+          htmlContent: html,
+          sender: {
+            name: this.FROM_NAME,
+            email: this.FROM_EMAIL,
+          },
+        },
+        3
+      );
 
-      const info = await this.sendMailWithRetry(mailOptions, 3);
-
-      console.log(`[EmailService] Reminder email sent successfully. Message ID: ${info.messageId}`);
+      console.log(
+        `[EmailService] Payment reminder sent successfully to ${customerEmail}`
+      );
       return true;
     } catch (error: any) {
       console.error(`[EmailService] Failed to send reminder email:`, error.message);
@@ -191,41 +171,80 @@ export class EmailService {
         paymentDate
       );
 
-      const mailOptions = {
-        from: process.env.EMAIL_FROM || "noreply@intelliflow.com",
-        to: customerEmail,
-        subject: `Payment Received - Invoice ${invoiceNumber}`,
-        html,
-      };
+      console.log(
+        `[EmailService] Sending payment confirmation for ${invoiceNumber} to ${customerEmail}`
+      );
 
-      console.log(`[EmailService] Sending payment confirmation for invoice ${invoiceNumber} to ${customerEmail}`);
+      await this.sendEmailWithRetry(
+        {
+          to: [{ email: customerEmail, name: customerName }],
+          subject: `Payment Received - Invoice ${invoiceNumber}`,
+          htmlContent: html,
+          sender: {
+            name: this.FROM_NAME,
+            email: this.FROM_EMAIL,
+          },
+        },
+        3
+      );
 
-      const info = await this.sendMailWithRetry(mailOptions, 3);
-
-      console.log(`[EmailService] Payment confirmation sent successfully. Message ID: ${info.messageId}`);
+      console.log(
+        `[EmailService] Payment confirmation sent successfully to ${customerEmail}`
+      );
       return true;
     } catch (error: any) {
-      console.error(`[EmailService] Failed to send payment confirmation:`, error.message);
+      console.error(
+        `[EmailService] Failed to send payment confirmation:`,
+        error.message
+      );
       return false;
     }
   }
 
   /**
-   * Send mail with retry logic for timeout issues
+   * Send email with retry logic
    */
-  private static async sendMailWithRetry(mailOptions: any, maxRetries: number = 3): Promise<any> {
+  private static async sendEmailWithRetry(
+    emailData: any,
+    maxRetries: number = 3
+  ): Promise<any> {
+    if (!this.API_KEY) {
+      throw new Error(
+        "BREVO_API_KEY not configured. Get a free account at https://www.brevo.com"
+      );
+    }
+
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[EmailService] Send attempt ${attempt}/${maxRetries}`);
-        const info = await this.transporter.sendMail(mailOptions);
-        return info;
+
+        const response = await axios.post(this.BREVO_API_URL, emailData, {
+          headers: {
+            "api-key": this.API_KEY,
+            "Content-Type": "application/json",
+          },
+          timeout: 30000,
+        });
+
+        console.log(`[EmailService] Email sent successfully. Message ID: ${response.data.messageId}`);
+        return response.data;
       } catch (error: any) {
         lastError = error;
+        const errorMessage =
+          error.response?.data?.message ||
+          error.message ||
+          "Unknown error";
+
         console.warn(
-          `[EmailService] Attempt ${attempt} failed: ${error.message}`
+          `[EmailService] Attempt ${attempt} failed: ${errorMessage}`
         );
+
+        // Don't retry on auth errors
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          throw new Error(`Authentication failed: ${errorMessage}. Check BREVO_API_KEY.`);
+        }
 
         // Wait before retrying (exponential backoff)
         if (attempt < maxRetries) {
@@ -252,51 +271,82 @@ export class EmailService {
     dueDate: string,
     invoiceLink?: string
   ): string {
+    const formattedAmount = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+    }).format(amount);
+
     return `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #2c3e50; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
-            .content { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
-            .invoice-details { background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid #3498db; }
-            .amount { font-size: 24px; font-weight: bold; color: #2c3e50; margin: 20px 0; }
-            .footer { text-align: center; color: #7f8c8d; font-size: 12px; margin-top: 20px; }
-            .button { background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Invoice Notification</h1>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }
+        .header h1 { margin: 0; font-size: 32px; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+        .invoice-details { background: white; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0; }
+        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .row.total { font-weight: bold; font-size: 18px; color: #667eea; border-bottom: 2px solid #667eea; }
+        .footer { text-align: center; color: #999; font-size: 12px; margin-top: 20px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Invoice ${invoiceNumber}</h1>
+            <p>Hello ${customerName},</p>
+        </div>
+        <div class="content">
+            <p>We've created an invoice for you. Please find the details below:</p>
+            
+            <div class="invoice-details">
+                <div class="row">
+                    <span>Invoice Number:</span>
+                    <strong>${invoiceNumber}</strong>
+                </div>
+                <div class="row">
+                    <span>Amount Due:</span>
+                    <strong>${formattedAmount}</strong>
+                </div>
+                <div class="row">
+                    <span>Due Date:</span>
+                    <strong>${new Date(dueDate).toLocaleDateString()}</strong>
+                </div>
+                <div class="row total">
+                    <span>Total:</span>
+                    <span>${formattedAmount}</span>
+                </div>
             </div>
-            <div class="content">
-              <p>Dear ${customerName},</p>
-              <p>We have sent you an invoice. Please find the details below:</p>
-              
-              <div class="invoice-details">
-                <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-                <p><strong>Amount Due:</strong> <span class="amount">${currency} ${amount.toFixed(2)}</span></p>
-                <p><strong>Due Date:</strong> ${dueDate}</p>
-              </div>
-              
-              <p>Please arrange payment by the due date. If you have any questions, feel free to reach out.</p>
-              
-              ${invoiceLink ? `<p><a href="${invoiceLink}" class="button">View Invoice</a></p>` : ""}
-              
-              <div class="footer">
-                <p>This is an automated message. Please do not reply to this email.</p>
-              </div>
+
+            <p>Your invoice is attached to this email. Please review it carefully.</p>
+            
+            ${
+              invoiceLink
+                ? `<a href="${invoiceLink}" class="btn">View Invoice Online</a>`
+                : ""
+            }
+
+            <p style="margin-top: 30px; color: #999; font-size: 14px;">
+                If you have any questions about this invoice, please don't hesitate to contact us.
+            </p>
+
+            <div class="footer">
+                <p>© IntelliFlow. All rights reserved.</p>
+                <p>Thank you for your business!</p>
             </div>
-          </div>
-        </body>
-      </html>
+        </div>
+    </div>
+</body>
+</html>
     `;
   }
 
   /**
-   * Generate reminder email HTML
+   * Generate payment reminder email HTML
    */
   private static generateReminderEmailHTML(
     customerName: string,
@@ -306,44 +356,80 @@ export class EmailService {
     dueDate: string,
     daysOverdue?: number
   ): string {
+    const formattedAmount = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+    }).format(amount);
+
+    const isOverdue = daysOverdue && daysOverdue > 0;
+    const bgColor = isOverdue ? "#ff6b6b" : "#ffa500";
+
     return `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: ${daysOverdue ? "#e74c3c" : "#f39c12"}; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
-            .content { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
-            .invoice-details { background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid ${daysOverdue ? "#e74c3c" : "#f39c12"}; }
-            .amount { font-size: 24px; font-weight: bold; color: #2c3e50; margin: 20px 0; }
-            .warning { color: ${daysOverdue ? "#e74c3c" : "#f39c12"}; font-weight: bold; }
-            .footer { text-align: center; color: #7f8c8d; font-size: 12px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>${daysOverdue ? "PAYMENT OVERDUE" : "Payment Reminder"}</h1>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, ${bgColor} 0%, #d63031 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }
+        .header h1 { margin: 0; font-size: 32px; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+        .alert { background: ${bgColor}; color: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .invoice-details { background: white; padding: 20px; border-left: 4px solid ${bgColor}; margin: 20px 0; }
+        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .footer { text-align: center; color: #999; font-size: 12px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${isOverdue ? "⚠️ URGENT" : "📌 REMINDER"}</h1>
+            <p>Hello ${customerName},</p>
+        </div>
+        <div class="content">
+            ${
+              isOverdue
+                ? `<div class="alert">⚠️ This invoice is ${daysOverdue} days overdue. Immediate payment is required.</div>`
+                : `<p>This is a friendly reminder that payment for the following invoice is due:</p>`
+            }
+            
+            <div class="invoice-details">
+                <div class="row">
+                    <span>Invoice Number:</span>
+                    <strong>${invoiceNumber}</strong>
+                </div>
+                <div class="row">
+                    <span>Amount Due:</span>
+                    <strong>${formattedAmount}</strong>
+                </div>
+                <div class="row">
+                    <span>Due Date:</span>
+                    <strong>${new Date(dueDate).toLocaleDateString()}</strong>
+                </div>
+                ${
+                  isOverdue
+                    ? `<div class="row" style="color: #d63031;">
+                    <span>Days Overdue:</span>
+                    <strong>${daysOverdue} days</strong>
+                </div>`
+                    : ""
+                }
             </div>
-            <div class="content">
-              <p>Dear ${customerName},</p>
-              <p>${daysOverdue ? `This invoice is <span class="warning">${daysOverdue} days overdue</span>. Please settle the payment immediately.` : "This is a friendly reminder that your invoice payment is due soon."}</p>
-              
-              <div class="invoice-details">
-                <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-                <p><strong>Amount Due:</strong> <span class="amount">${currency} ${amount.toFixed(2)}</span></p>
-                <p><strong>Due Date:</strong> ${dueDate}</p>
-              </div>
-              
-              <p>Please arrange payment as soon as possible. If you have any questions, contact us immediately.</p>
-              
-              <div class="footer">
-                <p>This is an automated message. Please do not reply to this email.</p>
-              </div>
+
+            <p>Please arrange payment at your earliest convenience. If payment has already been made, please disregard this message.</p>
+
+            <p style="margin-top: 30px; color: #999; font-size: 14px;">
+                If you have any questions or need to discuss payment terms, please contact us immediately.
+            </p>
+
+            <div class="footer">
+                <p>© IntelliFlow. All rights reserved.</p>
             </div>
-          </div>
-        </body>
-      </html>
+        </div>
+    </div>
+</body>
+</html>
     `;
   }
 
@@ -357,45 +443,69 @@ export class EmailService {
     currency: string,
     paymentDate: string
   ): string {
+    const formattedAmount = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+    }).format(amount);
+
     return `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #27ae60; color: white; padding: 20px; border-radius: 5px 5px 0 0; }
-            .content { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
-            .invoice-details { background-color: white; padding: 15px; margin: 20px 0; border-left: 4px solid #27ae60; }
-            .amount { font-size: 24px; font-weight: bold; color: #27ae60; margin: 20px 0; }
-            .checkmark { color: #27ae60; font-size: 30px; }
-            .footer { text-align: center; color: #7f8c8d; font-size: 12px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1><span class="checkmark">✓</span> Payment Received</h1>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }
+        .header h1 { margin: 0; font-size: 32px; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+        .success-box { background: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .invoice-details { background: white; padding: 20px; border-left: 4px solid #28a745; margin: 20px 0; }
+        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .footer { text-align: center; color: #999; font-size: 12px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ Payment Received</h1>
+            <p>Hello ${customerName},</p>
+        </div>
+        <div class="content">
+            <div class="success-box">
+                <h3 style="margin-top: 0; color: #28a745;">Thank you! We've received your payment.</h3>
+                <p>Your invoice has been marked as paid.</p>
             </div>
-            <div class="content">
-              <p>Dear ${customerName},</p>
-              <p>We have received your payment. Thank you for your prompt settlement!</p>
-              
-              <div class="invoice-details">
-                <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-                <p><strong>Amount Paid:</strong> <span class="amount">${currency} ${amount.toFixed(2)}</span></p>
-                <p><strong>Payment Date:</strong> ${paymentDate}</p>
-                <p><strong>Status:</strong> <span style="color: #27ae60; font-weight: bold;">PAID</span></p>
-              </div>
-              
-              <p>Your invoice has been marked as paid. We appreciate your business!</p>
-              
-              <div class="footer">
-                <p>This is an automated message. Please do not reply to this email.</p>
-              </div>
+            
+            <div class="invoice-details">
+                <div class="row">
+                    <span>Invoice Number:</span>
+                    <strong>${invoiceNumber}</strong>
+                </div>
+                <div class="row">
+                    <span>Amount Paid:</span>
+                    <strong>${formattedAmount}</strong>
+                </div>
+                <div class="row">
+                    <span>Payment Date:</span>
+                    <strong>${new Date(paymentDate).toLocaleDateString()}</strong>
+                </div>
             </div>
-          </div>
-        </body>
-      </html>
+
+            <p>Your transaction is complete. We appreciate your prompt payment and look forward to doing business with you again.</p>
+
+            <p style="margin-top: 30px; color: #999; font-size: 14px;">
+                If you have any questions about this transaction, please don't hesitate to contact us.
+            </p>
+
+            <div class="footer">
+                <p>© IntelliFlow. All rights reserved.</p>
+                <p>Thank you for your business!</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
     `;
   }
 }
