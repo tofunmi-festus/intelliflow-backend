@@ -32,7 +32,7 @@ export class InvoicePdfService {
    * Generate invoice PDF using pdfkit
    * Returns the PDF file path for attachment
    */
-  static generateInvoicePdf(data: InvoicePdfData): string {
+  static async generateInvoicePdf(data: InvoicePdfData): Promise<string> {
     this.initTempDir();
 
     const filename = `${data.invoiceNumber.replace(/[^a-z0-9]/gi, "_")}.pdf`;

@@ -60,7 +60,7 @@ export class InvoiceController {
 
       // Generate PDF
       try {
-        pdfPath = InvoicePdfService.generateInvoicePdf({
+        pdfPath = await InvoicePdfService.generateInvoicePdf({
           invoiceNumber: invoice.invoice_number,
           customerName: invoice.customer_name,
           customerEmail: invoice.customer_email,
@@ -402,7 +402,7 @@ export class InvoiceController {
       }
 
       // Generate PDF
-      pdfPath = InvoicePdfService.generateInvoicePdf({
+      pdfPath = await InvoicePdfService.generateInvoicePdf({
         invoiceNumber: invoice.invoice_number,
         customerName: invoice.customer_name,
         customerEmail: invoice.customer_email,

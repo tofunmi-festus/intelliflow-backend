@@ -53,7 +53,7 @@ export class EmailService {
     currency: string,
     dueDate: string,
     invoiceLink?: string,
-    pdfPath?: string
+    pdfPath?: string | null
   ): Promise<boolean> {
     try {
       const html = this.generateInvoiceEmailHTML(
